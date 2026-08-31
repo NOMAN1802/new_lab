@@ -1,0 +1,480 @@
+import httpStatus from 'http-status';
+import mongoose, { Types } from 'mongoose';
+import { QueryBuilder } from '../../builder/QueryBuilder';
+import AppError from '../../errors/AppError';
+import {
+  dateRangeFilter,
+  dhakaDateParts,
+  resolveDateRange,
+} from '../../utils/dateRange';
+import {
+  deleteReportFile,
+  getSignedFileUrl,
+  uploadReportFile,
+} from '../../utils/fileUpload';
+import { recordActivity } from '../ActivityLog/activity-log.service';
+import { nextSequence } from '../Counter/counter.model';
+import { Patient } from '../Patient/patient.model';
+import { Referrer } from '../Referrer/referrer.model';
+import { PaymentServices } from '../Payment/payment.service';
+import { Test } from '../Test/test.model';
+import { TInvoice, TInvoiceItem } from './invoice.interface';
+import { Invoice } from './invoice.model';
+import { computeTotals } from './invoice.totals';
+
+const InvoiceSearchableFields = [
+  'invoiceNumber',
+  'patientInfo.name',
+  'patientInfo.phone',
+  'patientInfo.patientId',
+];
+
+/**
+ * Invoice numbers read NLDC-MM-DD-YY-NNN, e.g. NLDC-08-30-26-001.
+ *
+ * The date part is the Dhaka calendar day. The three-digit tail is a counter
+ * that restarts each morning: invoiceNumber is uniquely indexed, so without it
+ * the second booking of any day would collide with the first. It doubles as
+ * the day's booking count at a glance.
+ */
+const buildInvoiceNumber = async (visitDate: Date): Promise<string> => {
+  const { dd, mm, yy, yyyy } = dhakaDateParts(visitDate);
+  const seq = await nextSequence(`invoice:${yyyy}-${mm}-${dd}`);
+  return `NLDC-${mm}-${dd}-${yy}-${String(seq).padStart(3, '0')}`;
+};
+
+export type TCreateInvoiceInput = {
+  patient: string;
+  referrer?: string;
+  testIds: string[];
+  visitDate?: string;
+  waiverPercent?: number;
+  commissionPercent?: number;
+  notes?: string;
+  /** Take the whole net payable as cash immediately — the usual counter case. */
+  collectFullPayment?: boolean;
+};
+
+/**
+ * Builds invoice items from the catalogue. Prices are read from the Test
+ * collection - never from the request - so a tampered payload cannot change
+ * what a patient is billed.
+ */
+const buildItems = async (
+  testIds: string[],
+  session?: mongoose.ClientSession
+): Promise<TInvoiceItem[]> => {
+  const uniqueIds = [...new Set(testIds)];
+
+  const tests = await Test.find({
+    _id: { $in: uniqueIds },
+    isDeleted: false,
+    isActive: true,
+  }).session(session ?? null);
+
+  if (tests.length !== uniqueIds.length) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'One or more selected tests are unavailable'
+    );
+  }
+
+  const byId = new Map(tests.map((test) => [String(test._id), test]));
+
+  // Preserve the order the receptionist selected, including repeats.
+  return testIds.map((id) => {
+    const test = byId.get(id)!;
+    return {
+      test: test._id as Types.ObjectId,
+      testCode: test.testCode,
+      testName: test.name,
+      categoryName: test.categoryName,
+      price: test.price,
+      reportStatus: 'pending' as const,
+    };
+  });
+};
+
+const createInvoice = async (
+  payload: TCreateInvoiceInput,
+  userId: string
+): Promise<TInvoice> => {
+  const patient = await Patient.findOne({
+    _id: payload.patient,
+    isDeleted: false,
+  });
+  if (!patient) throw new AppError(httpStatus.NOT_FOUND, 'Patient not found');
+
+  let referrerDoc = null;
+  if (payload.referrer) {
+    referrerDoc = await Referrer.findOne({
+      _id: payload.referrer,
+      isDeleted: false,
+    });
+    if (!referrerDoc) {
+      throw new AppError(httpStatus.NOT_FOUND, 'Referrer not found');
+    }
+  }
+
+  const items = await buildItems(payload.testIds);
+
+  // Rates default from the referrer and are frozen onto the invoice, so a
+  // later change to the referrer's terms never rewrites past billing.
+  // A walk-in with no referrer gets no waiver and accrues no commission.
+  const waiverPercent = referrerDoc
+    ? payload.waiverPercent ?? referrerDoc.defaultWaiverPercent
+    : 0;
+  const commissionPercent = referrerDoc
+    ? payload.commissionPercent ?? referrerDoc.defaultCommissionPercent
+    : 0;
+
+  const totals = computeTotals(items, waiverPercent, commissionPercent, 0);
+
+  const visitDate = payload.visitDate ? new Date(payload.visitDate) : new Date();
+
+  const invoice = await Invoice.create({
+    invoiceNumber: await buildInvoiceNumber(visitDate),
+    visitDate,
+    patient: patient._id,
+    patientInfo: {
+      patientId: patient.patientId,
+      name: patient.name,
+      age: patient.age,
+      gender: patient.gender,
+      phone: patient.phone,
+      address: patient.address,
+    },
+    referrer: referrerDoc?._id,
+    referrerInfo: referrerDoc
+      ? {
+          referrerCode: referrerDoc.referrerCode,
+          name: referrerDoc.name,
+          designation: referrerDoc.designation,
+          hospital: referrerDoc.hospital,
+        }
+      : undefined,
+    items,
+    waiverPercent,
+    commissionPercent,
+    ...totals,
+    paidAmount: 0,
+    commissionStatus: 'pending',
+    notes: payload.notes,
+    createdBy: new Types.ObjectId(userId),
+  });
+
+  await recordActivity({
+    userId,
+    action: 'invoice.created',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary:
+      `Booked ${items.length} test(s) for ${patient.name} — ` +
+      `net ${invoice.netPayable}` +
+      (referrerDoc ? ` (ref. ${referrerDoc.name})` : ' (walk-in)'),
+    meta: {
+      gross: invoice.grossAmount,
+      waiver: invoice.waiverAmount,
+      net: invoice.netPayable,
+      commission: invoice.commissionAmount,
+      referrer: referrerDoc?.name,
+    },
+  });
+
+  // Settling at the counter is the normal case, so the receipt is issued as
+  // part of the booking rather than as a second step. A fully waived invoice
+  // has nothing to collect and is already marked paid.
+  if (payload.collectFullPayment && invoice.netPayable > 0) {
+    const { invoice: settled } = await PaymentServices.createPayment(
+      { invoice: String(invoice._id), amount: invoice.netPayable },
+      userId
+    );
+    return settled;
+  }
+
+  return invoice;
+};
+
+const getInvoices = async (query: Record<string, unknown>) => {
+  const range = resolveDateRange(query);
+
+  const baseQuery = Invoice.find({
+    ...dateRangeFilter('visitDate', range),
+  })
+    .populate('createdBy', 'name email')
+    .populate('patient', 'patientId name phone');
+
+  const invoiceQuery = new QueryBuilder(baseQuery, query)
+    .search(InvoiceSearchableFields)
+    .filter()
+    .sort()
+    .paginate()
+    .fields();
+
+  const [invoices, total] = await Promise.all([
+    invoiceQuery.modelQuery,
+    invoiceQuery.countTotal(),
+  ]);
+
+  return {
+    meta: {
+      total,
+      page: Number(query.page ?? 1),
+      limit: Number(query.limit ?? 10),
+    },
+    result: invoices,
+  };
+};
+
+const getInvoice = async (id: string): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(id)
+    .populate('createdBy', 'name email')
+    .populate('patient', 'patientId name phone age gender address');
+
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+  return invoice;
+};
+
+/** Every invoice raised for a patient - powers the visit-history view. */
+const getPatientInvoices = async (patientId: string) => {
+  const patient = await Patient.findOne({ _id: patientId, isDeleted: false });
+  if (!patient) throw new AppError(httpStatus.NOT_FOUND, 'Patient not found');
+
+  const invoices = await Invoice.find({ patient: patientId }).sort({
+    visitDate: -1,
+  });
+
+  return { patient, invoices };
+};
+
+/**
+ * Replaces the booked tests on an invoice and re-derives every total.
+ * Refuses if the new net would fall below what has already been collected -
+ * that would imply an untracked refund.
+ */
+const updateInvoiceItems = async (
+  id: string,
+  testIds: string[],
+  waiverPercent?: number,
+  commissionPercent?: number
+): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(id);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  if (invoice.isCancelled) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot modify a cancelled invoice'
+    );
+  }
+
+  const hasReports = invoice.items.some(
+    (item) => item.reportStatus !== 'pending'
+  );
+  if (hasReports) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot change tests once a report has been uploaded against this invoice'
+    );
+  }
+
+  const items = await buildItems(testIds);
+  const nextWaiver = waiverPercent ?? invoice.waiverPercent;
+  const nextCommission = commissionPercent ?? invoice.commissionPercent;
+
+  const totals = computeTotals(
+    items,
+    nextWaiver,
+    nextCommission,
+    invoice.paidAmount
+  );
+
+  if (totals.netPayable < invoice.paidAmount) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Net payable would fall below the amount already collected. Void the excess payments before reducing this invoice.'
+    );
+  }
+
+  invoice.set({
+    items,
+    waiverPercent: nextWaiver,
+    commissionPercent: nextCommission,
+    ...totals,
+  });
+
+  await invoice.save();
+  return invoice;
+};
+
+const cancelInvoice = async (
+  id: string,
+  userId: string,
+  reason?: string
+): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(id);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  if (invoice.isCancelled) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Invoice is already cancelled');
+  }
+
+  if (invoice.paidAmount > 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'Cannot cancel an invoice with payments recorded against it. Void the payments first.'
+    );
+  }
+
+  invoice.set({
+    isCancelled: true,
+    cancelledAt: new Date(),
+    cancelledBy: new Types.ObjectId(userId),
+    cancelReason: reason,
+  });
+
+  await invoice.save();
+
+  await recordActivity({
+    userId,
+    action: 'invoice.cancelled',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary: `Cancelled ${invoice.invoiceNumber} for ${invoice.patientInfo.name} — ${reason ?? 'no reason given'}`,
+    meta: { net: invoice.netPayable, reason },
+  });
+
+  return invoice;
+};
+
+const uploadItemReport = async (
+  invoiceId: string,
+  itemId: string,
+  file: Express.Multer.File,
+  userId: string
+): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  const item = invoice.items.find((entry) => String(entry._id) === itemId);
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
+  }
+
+  const previous = item.reportFile;
+  const stored = await uploadReportFile(file);
+
+  item.reportFile = {
+    ...stored,
+    uploadedAt: new Date(),
+    uploadedBy: new Types.ObjectId(userId),
+  };
+  item.reportStatus = 'uploaded';
+
+  try {
+    await invoice.save();
+  } catch (error) {
+    // Do not strand the just-uploaded file if the write fails.
+    await deleteReportFile(stored.publicId, stored.resourceType).catch(
+      () => undefined
+    );
+    throw error;
+  }
+
+  // Replacing a report supersedes the old file.
+  if (previous?.publicId) {
+    await deleteReportFile(previous.publicId, previous.resourceType).catch(
+      () => undefined
+    );
+  }
+
+  await recordActivity({
+    userId,
+    action: 'report.uploaded',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary:
+      `${previous ? 'Replaced' : 'Uploaded'} the ${item.testName} report for ` +
+      `${invoice.patientInfo.name} (${invoice.invoiceNumber})`,
+    meta: { test: item.testName, file: stored.originalName, replaced: Boolean(previous) },
+  });
+
+  return invoice;
+};
+
+const markReportDelivered = async (
+  invoiceId: string,
+  itemId: string,
+  userId: string
+): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  const item = invoice.items.find((entry) => String(entry._id) === itemId);
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
+  }
+
+  if (item.reportStatus !== 'uploaded') {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'A report must be uploaded before it can be marked delivered'
+    );
+  }
+
+  item.reportStatus = 'delivered';
+  item.deliveredAt = new Date();
+
+  await invoice.save();
+
+  await recordActivity({
+    userId,
+    action: 'report.delivered',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary: `Handed the ${item.testName} report to ${invoice.patientInfo.name} (${invoice.invoiceNumber})`,
+    meta: { test: item.testName },
+  });
+
+  return invoice;
+};
+
+/** Short-lived signed link - reports are medical records, not public assets. */
+const getReportDownloadUrl = async (
+  invoiceId: string,
+  itemId: string
+): Promise<{ url: string; originalName: string }> => {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  const item = invoice.items.find((entry) => String(entry._id) === itemId);
+  if (!item?.reportFile) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No report uploaded for this test');
+  }
+
+  return {
+    url: getSignedFileUrl(
+      item.reportFile.publicId,
+      item.reportFile.resourceType,
+      item.reportFile.format,
+      item.reportFile.version
+    ),
+    originalName: item.reportFile.originalName,
+  };
+};
+
+export const InvoiceServices = {
+  createInvoice,
+  getInvoices,
+  getInvoice,
+  getPatientInvoices,
+  updateInvoiceItems,
+  cancelInvoice,
+  uploadItemReport,
+  markReportDelivered,
+  getReportDownloadUrl,
+};

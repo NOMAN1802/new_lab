@@ -1,0 +1,142 @@
+import httpStatus from 'http-status';
+import AppError from '../../errors/AppError';
+import { catchAsync } from '../../utils/catchAsync';
+import sendResponse from '../../utils/sendResponse';
+import { TUserRole } from '../User/user.interface';
+import { serializeInvoice, serializeInvoices } from './invoice.serializer';
+import { InvoiceServices } from './invoice.service';
+
+const createInvoice = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.createInvoice(req.body, req.user._id);
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: 'Invoice created successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const getInvoices = catchAsync(async (req, res) => {
+  const { meta, result } = await InvoiceServices.getInvoices(req.query);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Invoices retrieved successfully',
+    meta,
+    data: serializeInvoices(result, req.user.role as TUserRole),
+  });
+});
+
+const getInvoice = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.getInvoice(req.params.id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Invoice retrieved successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const getPatientInvoices = catchAsync(async (req, res) => {
+  const { patient, invoices } = await InvoiceServices.getPatientInvoices(
+    req.params.patientId
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Patient visit history retrieved successfully',
+    data: {
+      patient,
+      invoices: serializeInvoices(invoices, req.user.role as TUserRole),
+    },
+  });
+});
+
+const updateInvoiceItems = catchAsync(async (req, res) => {
+  const { testIds, waiverPercent, commissionPercent } = req.body;
+  const result = await InvoiceServices.updateInvoiceItems(
+    req.params.id,
+    testIds,
+    waiverPercent,
+    commissionPercent
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Invoice updated successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const cancelInvoice = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.cancelInvoice(
+    req.params.id,
+    req.user._id,
+    req.body.reason
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Invoice cancelled successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const uploadItemReport = catchAsync(async (req, res) => {
+  if (!req.file) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'No report file was uploaded');
+  }
+
+  const result = await InvoiceServices.uploadItemReport(
+    req.params.id,
+    req.params.itemId,
+    req.file,
+    req.user._id
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Report uploaded successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const markReportDelivered = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.markReportDelivered(
+    req.params.id,
+    req.params.itemId,
+    req.user._id
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Report marked as delivered',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
+const getReportDownloadUrl = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.getReportDownloadUrl(
+    req.params.id,
+    req.params.itemId
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Report link generated successfully',
+    data: result,
+  });
+});
+
+export const InvoiceControllers = {
+  createInvoice,
+  getInvoices,
+  getInvoice,
+  getPatientInvoices,
+  updateInvoiceItems,
+  cancelInvoice,
+  uploadItemReport,
+  markReportDelivered,
+  getReportDownloadUrl,
+};

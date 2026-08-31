@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
+
+  --color-brand: #5C6CFF;
+  --color-brand-dark: #3747D1;
+  --color-brand-light: #E6E9FF;
+  --color-success: #14C08A;
+  --color-warning: #FFB347;
+  --color-danger: #FF5F6D;
+  --color-muted: #94A3B8;
+
+  --shadow-card: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+:root {
+  font-family: var(--font-sans);
+  color: #0f172a;
+  background-color: #f7f8fb;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-image: radial-gradient(circle at 20% 20%, rgba(92, 108, 255, 0.12), transparent 45%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for sidebar */
+.lg\:flex-col::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lg\:flex-col::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lg\:flex-col::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.lg\:flex-col::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
