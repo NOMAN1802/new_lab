@@ -3,9 +3,9 @@ dist
 .vercel
 
 # Secrets — never commit
-# .env
-# .env.*
-# !.env.example
+.env
+.env.*
+!.env.example
 
 # Generated invoice PDFs
 src/invoices/*.pdf
