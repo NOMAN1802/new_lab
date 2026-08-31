@@ -6,50 +6,8 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 import config from '../../config';
 import AppError from '../../errors/AppError';
 import { createToken } from '../../utils/verifyJWT';
-import { TLoginUser, TRegisterUser } from './auth.interface';
+import { TLoginUser } from './auth.interface';
 import { User } from '../User/user.model';
-
-const registerUser = async (payload: TRegisterUser) => {
-  // checking if the user is exist
-  const user = await User.isUserExistsByEmail(payload?.email);
-
-  if (user) {
-    throw new AppError(httpStatus.NOT_FOUND, 'This user is already exist!');
-  }
-
-  payload.role = "admin";
-  (payload as any).status = 'active';
-
-  //create new user
-  const newUser = await User.create(payload);
-
-  //create token and sent to the  client
-
-  const jwtPayload = {
-    _id: newUser._id,
-    name: newUser.name,
-    email: newUser.email,
-    role: newUser.role,
-
-  };
-
-  const accessToken = createToken(
-    jwtPayload,
-    config.jwt_access_secret as string,
-    config.jwt_access_expires_in as string
-  );
-
-  const refreshToken = createToken(
-    jwtPayload,
-    config.jwt_refresh_secret as string,
-    config.jwt_refresh_expires_in as string
-  );
-
-  return {
-    accessToken,
-    refreshToken,
-  };
-};
 const loginUser = async (payload: TLoginUser) => {
   // checking if the user is exist
   const user = await User.isUserExistsByEmail(payload?.email);
@@ -138,7 +96,6 @@ const refreshToken = async (token: string) => {
 };
 
 export const AuthServices = {
-  registerUser,
   loginUser,
   refreshToken,
 };

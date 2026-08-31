@@ -12,16 +12,10 @@ export type LoginResponse = {
     refreshToken: string;
 };
 
-export type RegisterPayload = {
-    name: string;
-    email: string;
-    mobileNumber: string;
-    password: string;
-    role: 'admin' | 'manager' | 'staff';
-};
-
-export type RegisterResponse = LoginResponse;
-
+/**
+ * There is no self-registration. Accounts are created by an Admin under
+ * Users, and the first Admin is seeded on the server from the environment.
+ */
 export const authApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
         login: builder.mutation<LoginResponse, LoginPayload>({
@@ -31,23 +25,6 @@ export const authApi = baseApi.injectEndpoints({
                 body,
             }),
             transformResponse: (response: ApiResponse<LoginResponse>) => response.data,
-            async onQueryStarted(_, { dispatch, queryFulfilled }) {
-                try {
-                    const { data } = await queryFulfilled;
-                    dispatch(setCredentials({ ...data }));
-                } catch (error) {
-                    console.error(error);
-                }
-            },
-        }),
-        register: builder.mutation<RegisterResponse, RegisterPayload>({
-            query: (body) => ({
-                url: '/auth/register',
-                method: 'POST',
-                body,
-            }),
-            transformResponse: (response: ApiResponse<RegisterResponse>) =>
-                response.data,
             async onQueryStarted(_, { dispatch, queryFulfilled }) {
                 try {
                     const { data } = await queryFulfilled;
@@ -76,9 +53,5 @@ export const authApi = baseApi.injectEndpoints({
     }),
 });
 
-export const {
-    useLoginMutation,
-    useRefreshTokenMutation,
-    useRegisterMutation,
-} = authApi;
+export const { useLoginMutation, useRefreshTokenMutation } = authApi;
 

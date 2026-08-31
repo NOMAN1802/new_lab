@@ -8,10 +8,11 @@
     "lint:fix": "npx eslint . --fix",
     "build": "tsc",
     "test": "npm run verify",
-    "verify": "npm run build && node scripts/verify-money.js && node scripts/verify-e2e.js",
+    "verify": "npm run build && node scripts/verify-money.js && node scripts/verify-e2e.js && node scripts/verify-routes.js",
     "verify:money": "npm run build && node scripts/verify-money.js",
     "verify:e2e": "npm run build && node scripts/verify-e2e.js",
-    "verify:cloudinary": "npm run build && node scripts/verify-cloudinary.js"
+    "verify:cloudinary": "npm run build && node scripts/verify-cloudinary.js",
+    "verify:routes": "npm run build && node scripts/verify-routes.js"
   },
   "author": "",
   "license": "ISC",

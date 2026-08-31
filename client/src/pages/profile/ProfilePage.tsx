@@ -38,10 +38,8 @@ const ProfilePage = () => {
         switch (role) {
             case 'admin':
                 return 'emerald';
-            case 'manager':
+            case 'receptionist':
                 return 'blue';
-            case 'staff':
-                return 'amber';
             default:
                 return 'slate';
         }
@@ -51,10 +49,8 @@ const ProfilePage = () => {
         switch (role) {
             case 'admin':
                 return '👑';
-            case 'manager':
+            case 'receptionist':
                 return '💼';
-            case 'staff':
-                return '👤';
             default:
                 return '👤';
         }

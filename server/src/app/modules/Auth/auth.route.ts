@@ -5,11 +5,13 @@ import { AuthValidation } from './auth.validation';
 
 const router = express.Router();
 
-router.post(
-  '/register',
-  validateRequest(AuthValidation.registerValidationSchema),
-  AuthControllers.registerUser
-);
+/**
+ * There is deliberately no public registration endpoint.
+ *
+ * Accounts are created by an Admin at POST /users/create-user, and the first
+ * Admin is seeded from the environment on boot (proposal §4.1: "Admin can
+ * add/manage receptionist user accounts").
+ */
 router.post(
   '/login',
   validateRequest(AuthValidation.loginValidationSchema),
@@ -17,8 +19,5 @@ router.post(
 );
 
 router.post('/refresh-token', AuthControllers.refreshToken);
-
-
-
 
 export const AuthRoutes = router;
