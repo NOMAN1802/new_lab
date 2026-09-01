@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
-import { apiErrorMessage, formatDate, money } from '@/lib/format';
+import { apiErrorMessage, commissionBasis, formatDate, money } from '@/lib/format';
 import {
     useCreateCommissionPayoutMutation,
     useGetCommissionPayoutsQuery,
@@ -134,7 +134,7 @@ const CommissionPayoutsPage = () => {
                                                         {money(invoice.netPayable)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right tabular-nums text-slate-500">
-                                                        {invoice.commissionPercent}%
+                                                        {commissionBasis(invoice.commissionType, invoice.commissionValue)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
                                                         {money(invoice.commissionAmount)}

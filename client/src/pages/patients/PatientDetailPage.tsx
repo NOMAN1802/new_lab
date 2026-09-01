@@ -129,10 +129,10 @@ const PatientDetailPage = () => {
                                         )}
                                     </div>
                                     <div className="flex items-center gap-5 text-sm tabular-nums">
-                                        {/* Gross and waiver are withheld from receptionists. */}
-                                        {isAdmin && invoice.waiverAmount !== undefined && invoice.waiverAmount > 0 && (
+                                        {/* Gross and discount are withheld from receptionists. */}
+                                        {isAdmin && invoice.discountAmount !== undefined && invoice.discountAmount > 0 && (
                                             <span className="text-amber-600">
-                                                Waiver {money(invoice.waiverAmount)}
+                                                Discount {money(invoice.discountAmount)}
                                             </span>
                                         )}
                                         <span className="text-slate-600">

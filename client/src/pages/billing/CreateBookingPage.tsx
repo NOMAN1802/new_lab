@@ -14,6 +14,7 @@ import { useGetPatientsQuery } from '@/services/patientsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
 import { useGetTestsQuery } from '@/services/testsApi';
 import type { LabTest } from '@/services/testsApi';
+import type { CommissionType } from '@/services/invoicesApi';
 
 const fieldClass =
     'w-full rounded-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
@@ -31,7 +32,10 @@ const CreateBookingPage = () => {
     const [selected, setSelected] = useState<LabTest[]>([]);
     const [testSearch, setTestSearch] = useState('');
     const [notes, setNotes] = useState('');
-    const [waiverOverride, setWaiverOverride] = useState<string>('');
+    // Blank means "use the referrer's standing terms".
+    const [discountOverride, setDiscountOverride] = useState('');
+    const [commissionType, setCommissionType] = useState<CommissionType | ''>('');
+    const [commissionValue, setCommissionValue] = useState('');
     // Settling at the counter is the normal case, so this starts ticked.
     const [collectFullPayment, setCollectFullPayment] = useState(true);
 
@@ -61,20 +65,31 @@ const CreateBookingPage = () => {
     const totals = (() => {
         const gross = round2(selected.reduce((sum, test) => sum + test.price, 0));
 
-        // A walk-in with no referrer gets no waiver.
-        const effectiveWaiver = !referrer
-            ? 0
-            : waiverOverride !== '' && isAdmin
-              ? Number(waiverOverride)
-              : (referrer.defaultWaiverPercent ?? 0);
+        // The discount comes off the patient's bill. It defaults from the
+        // referrer, but can be given to a walk-in too.
+        const discountPercent =
+            discountOverride !== ''
+                ? Number(discountOverride)
+                : (referrer?.defaultDiscountPercent ?? 0);
 
-        const waiver = round2((gross * effectiveWaiver) / 100);
-        return {
-            gross,
-            waiverPercent: effectiveWaiver,
-            waiver,
-            net: round2(gross - waiver),
-        };
+        const discount = round2((gross * discountPercent) / 100);
+        const net = round2(gross - discount);
+
+        // Commission is a separate arrangement with the referring doctor and
+        // never touches the patient's bill. No referrer, nobody to pay.
+        const type = commissionType || referrer?.defaultCommissionType || 'percent';
+        const value =
+            commissionValue !== ''
+                ? Number(commissionValue)
+                : (referrer?.defaultCommissionValue ?? 0);
+
+        const commission = !referrer
+            ? 0
+            : type === 'fixed'
+              ? round2(value)
+              : round2((net * value) / 100);
+
+        return { gross, discountPercent, discount, net, commissionType: type, commission };
     })();
 
     const addTest = (test: LabTest) => {
@@ -104,11 +119,13 @@ const CreateBookingPage = () => {
                 testIds: selected.map((test) => test._id),
                 notes: notes.trim() || undefined,
                 collectFullPayment,
-                // Only Admin may override the referrer's standing rate.
-                waiverPercent:
-                    isAdmin && waiverOverride !== '' && referrerId
-                        ? Number(waiverOverride)
-                        : undefined,
+                // Blank fields are omitted so the server falls back to the
+                // referrer's standing terms.
+                discountPercent:
+                    discountOverride !== '' ? Number(discountOverride) : undefined,
+                commissionType: commissionType || undefined,
+                commissionValue:
+                    commissionValue !== '' ? Number(commissionValue) : undefined,
             }).unwrap();
 
             toast.success(
@@ -189,7 +206,10 @@ const CreateBookingPage = () => {
                             value={referrerId}
                             onChange={(e) => {
                                 setReferrerId(e.target.value);
-                                setWaiverOverride('');
+                                // Fall back to the new referrer's own terms.
+                                setDiscountOverride('');
+                                setCommissionType('');
+                                setCommissionValue('');
                             }}
                             className={fieldClass}
                         >
@@ -202,24 +222,86 @@ const CreateBookingPage = () => {
                             ))}
                         </select>
 
+                        <div className="mt-4">
+                            <label
+                                htmlFor="discount"
+                                className="mb-1.5 block text-sm font-medium text-slate-700"
+                            >
+                                Patient discount (%)
+                            </label>
+                            <input
+                                id="discount"
+                                type="number"
+                                min={0}
+                                max={100}
+                                step="0.01"
+                                value={discountOverride}
+                                onChange={(e) => setDiscountOverride(e.target.value)}
+                                placeholder={
+                                    referrer
+                                        ? `Default ${referrer.defaultDiscountPercent ?? 0}%`
+                                        : '0'
+                                }
+                                className={`${fieldClass} tabular-nums`}
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                                Comes off what the patient pays. Leave blank to use the
+                                referrer&apos;s standing rate.
+                            </p>
+                        </div>
+
                         {isAdmin && referrer && (
-                            <div className="mt-4">
-                                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                    Waiver override (%)
-                                </label>
+                            <div className="mt-5 space-y-3 rounded-sm bg-slate-50 p-4">
+                                <p className="text-sm font-semibold text-slate-900">
+                                    Commission to {referrer.name}
+                                </p>
+
+                                <div className="flex gap-1 rounded-sm bg-white p-1">
+                                    {(
+                                        [
+                                            ['percent', '% of paid amount'],
+                                            ['fixed', 'Fixed amount (৳)'],
+                                        ] as [CommissionType, string][]
+                                    ).map(([value, label]) => {
+                                        const active =
+                                            (commissionType ||
+                                                referrer.defaultCommissionType ||
+                                                'percent') === value;
+                                        return (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => setCommissionType(value)}
+                                                className={`flex-1 rounded-sm px-3 py-1.5 text-xs font-semibold transition ${
+                                                    active
+                                                        ? 'bg-brand text-white shadow-sm'
+                                                        : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
                                 <input
                                     type="number"
                                     min={0}
-                                    max={100}
                                     step="0.01"
-                                    value={waiverOverride}
-                                    onChange={(e) => setWaiverOverride(e.target.value)}
-                                    placeholder={`Default ${referrer.defaultWaiverPercent ?? 0}%`}
+                                    value={commissionValue}
+                                    onChange={(e) => setCommissionValue(e.target.value)}
+                                    placeholder={`Default ${referrer.defaultCommissionValue ?? 0}${
+                                        (referrer.defaultCommissionType ?? 'percent') ===
+                                        'fixed'
+                                            ? ' ৳'
+                                            : '%'
+                                    }`}
                                     className={`${fieldClass} tabular-nums`}
                                 />
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Leave blank to use the referrer&apos;s standing rate. The rate used is
-                                    frozen onto this invoice.
+
+                                <p className="text-xs text-slate-500">
+                                    Paid by the centre to the referrer — it does not change the
+                                    patient&apos;s bill. Leave blank to use their standing terms.
                                 </p>
                             </div>
                         )}
@@ -316,16 +398,29 @@ const CreateBookingPage = () => {
                                 <dt className="text-slate-500">Gross</dt>
                                 <dd className="tabular-nums text-slate-900">{money(totals.gross)}</dd>
                             </div>
-                            {totals.waiver > 0 && (
+                            {totals.discount > 0 && (
                                 <div className="flex justify-between text-amber-600">
-                                    <dt>Waiver ({totals.waiverPercent}%)</dt>
-                                    <dd className="tabular-nums">−{money(totals.waiver)}</dd>
+                                    <dt>Discount ({totals.discountPercent}%)</dt>
+                                    <dd className="tabular-nums">−{money(totals.discount)}</dd>
                                 </div>
                             )}
                             <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-semibold">
-                                <dt className="text-slate-900">Net payable</dt>
+                                <dt className="text-slate-900">Patient pays</dt>
                                 <dd className="tabular-nums text-brand">{money(totals.net)}</dd>
                             </div>
+
+                            {/* Below the line: the centre's cost, not the patient's bill. */}
+                            {isAdmin && referrer && totals.commission > 0 && (
+                                <div className="flex justify-between border-t border-dashed border-slate-200 pt-2 text-xs text-slate-500">
+                                    <dt>
+                                        Commission to {referrer.name.split(' ').slice(-1)[0]}
+                                        {totals.commissionType === 'percent'
+                                            ? ' (% of paid)'
+                                            : ' (fixed)'}
+                                    </dt>
+                                    <dd className="tabular-nums">{money(totals.commission)}</dd>
+                                </div>
+                            )}
                         </dl>
 
                         <div>

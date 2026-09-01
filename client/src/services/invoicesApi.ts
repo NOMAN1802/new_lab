@@ -4,6 +4,7 @@ import type { ApiResponse, ListQuery, Paginated } from './types';
 import type { Patient } from './patientsApi';
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+export type CommissionType = 'percent' | 'fixed';
 export type ReportStatus = 'pending' | 'uploaded' | 'delivered';
 
 export type ReportFile = {
@@ -60,15 +61,16 @@ export type Invoice = {
     items: InvoiceItem[];
 
     grossAmount: number;
-    waiverPercent: number;
-    waiverAmount: number;
+    discountPercent: number;
+    discountAmount: number;
     netPayable: number;
 
     paidAmount: number;
     dueAmount: number;
     paymentStatus: PaymentStatus;
 
-    commissionPercent?: number;
+    commissionType?: CommissionType;
+    commissionValue?: number;
     commissionAmount?: number;
     commissionStatus?: 'pending' | 'paid';
 
@@ -85,8 +87,9 @@ export type CreateInvoiceInput = {
     testIds: string[];
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
-    waiverPercent?: number;
-    commissionPercent?: number;
+    discountPercent?: number;
+    commissionType?: CommissionType;
+    commissionValue?: number;
     notes?: string;
     /** Take the whole net payable as cash immediately, issuing a receipt. */
     collectFullPayment?: boolean;
@@ -157,8 +160,9 @@ export const invoicesApi = baseApi.injectEndpoints({
             {
                 id: string;
                 testIds: string[];
-                waiverPercent?: number;
-                commissionPercent?: number;
+                discountPercent?: number;
+                commissionType?: CommissionType;
+                commissionValue?: number;
             }
         >({
             query: ({ id, ...body }) => ({

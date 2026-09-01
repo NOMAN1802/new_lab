@@ -4,7 +4,7 @@ import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
-import { apiErrorMessage, percent } from '@/lib/format';
+import { apiErrorMessage, commissionBasis, percent } from '@/lib/format';
 import {
     useCreateReferrerMutation,
     useDeleteReferrerMutation,
@@ -12,6 +12,7 @@ import {
     useUpdateReferrerMutation,
 } from '@/services/referrersApi';
 import type { Referrer, ReferrerInput } from '@/services/referrersApi';
+import type { CommissionType } from '@/services/invoicesApi';
 
 const EMPTY: ReferrerInput = {
     referrerCode: '',
@@ -20,8 +21,9 @@ const EMPTY: ReferrerInput = {
     hospital: '',
     phone: '',
     address: '',
-    defaultWaiverPercent: 0,
-    defaultCommissionPercent: 0,
+    defaultDiscountPercent: 0,
+    defaultCommissionType: 'percent',
+    defaultCommissionValue: 0,
     isActive: true,
 };
 
@@ -58,8 +60,9 @@ const ReferrersPage = () => {
             hospital: referrer.hospital ?? '',
             phone: referrer.phone,
             address: referrer.address ?? '',
-            defaultWaiverPercent: referrer.defaultWaiverPercent ?? 0,
-            defaultCommissionPercent: referrer.defaultCommissionPercent ?? 0,
+            defaultDiscountPercent: referrer.defaultDiscountPercent ?? 0,
+            defaultCommissionType: referrer.defaultCommissionType ?? 'percent',
+            defaultCommissionValue: referrer.defaultCommissionValue ?? 0,
             isActive: referrer.isActive,
         });
         setFormOpen(true);
@@ -223,18 +226,18 @@ const ReferrersPage = () => {
                     <div className="grid gap-5 rounded-sm bg-amber-50/60 p-5 sm:grid-cols-2">
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Default patient waiver (%)
+                                Default patient discount (%)
                             </label>
                             <input
                                 type="number"
                                 min={0}
                                 max={100}
                                 step="0.01"
-                                value={form.defaultWaiverPercent ?? 0}
+                                value={form.defaultDiscountPercent ?? 0}
                                 onChange={(e) =>
                                     setForm({
                                         ...form,
-                                        defaultWaiverPercent: Number(e.target.value),
+                                        defaultDiscountPercent: Number(e.target.value),
                                     })
                                 }
                                 className={`${fieldClass} tabular-nums`}
@@ -245,24 +248,49 @@ const ReferrersPage = () => {
                         </div>
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Default commission (%)
+                                Default commission
                             </label>
+
+                            <div className="mb-2 flex gap-1 rounded-sm bg-white p-1">
+                                {(
+                                    [
+                                        ['percent', '% of paid'],
+                                        ['fixed', 'Fixed ৳'],
+                                    ] as [CommissionType, string][]
+                                ).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() =>
+                                            setForm({ ...form, defaultCommissionType: value })
+                                        }
+                                        className={`flex-1 rounded-sm px-3 py-1.5 text-xs font-semibold transition ${
+                                            (form.defaultCommissionType ?? 'percent') === value
+                                                ? 'bg-brand text-white shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+
                             <input
                                 type="number"
                                 min={0}
-                                max={100}
                                 step="0.01"
-                                value={form.defaultCommissionPercent ?? 0}
+                                value={form.defaultCommissionValue ?? 0}
                                 onChange={(e) =>
                                     setForm({
                                         ...form,
-                                        defaultCommissionPercent: Number(e.target.value),
+                                        defaultCommissionValue: Number(e.target.value),
                                     })
                                 }
                                 className={`${fieldClass} tabular-nums`}
                             />
                             <p className="mt-1 text-xs text-slate-500">
-                                Earned on net payable, after the waiver.
+                                What the centre pays this referrer. Can be overridden on any
+                                individual invoice.
                             </p>
                         </div>
                     </div>
@@ -315,7 +343,7 @@ const ReferrersPage = () => {
                                 <th className="px-5 py-4 font-semibold">Referrer</th>
                                 <th className="px-5 py-4 font-semibold">Hospital</th>
                                 <th className="px-5 py-4 font-semibold">Phone</th>
-                                <th className="px-5 py-4 text-right font-semibold">Waiver</th>
+                                <th className="px-5 py-4 text-right font-semibold">Discount</th>
                                 <th className="px-5 py-4 text-right font-semibold">Commission</th>
                                 <th className="px-5 py-4 text-right font-semibold">Actions</th>
                             </tr>
@@ -340,10 +368,13 @@ const ReferrersPage = () => {
                                     <td className="px-5 py-4 text-slate-600">{referrer.hospital || '—'}</td>
                                     <td className="px-5 py-4 tabular-nums text-slate-600">{referrer.phone}</td>
                                     <td className="px-5 py-4 text-right tabular-nums text-amber-600">
-                                        {percent(referrer.defaultWaiverPercent)}
+                                        {percent(referrer.defaultDiscountPercent)}
                                     </td>
                                     <td className="px-5 py-4 text-right tabular-nums text-slate-900">
-                                        {percent(referrer.defaultCommissionPercent)}
+                                        {commissionBasis(
+                                            referrer.defaultCommissionType,
+                                            referrer.defaultCommissionValue
+                                        )}
                                     </td>
                                     <td className="px-5 py-4">
                                         <div className="flex justify-end gap-3 text-xs font-semibold">

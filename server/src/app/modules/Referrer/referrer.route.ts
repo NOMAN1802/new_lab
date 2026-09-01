@@ -15,7 +15,7 @@ router.post(
 );
 
 // Receptionists need the list to attach a referrer at booking time, but the
-// controller strips the waiver/commission rates from what they receive.
+// controller strips the discount and commission terms from what they receive.
 router.get(
   '/',
   auth(USER_ROLE.admin, USER_ROLE.receptionist),

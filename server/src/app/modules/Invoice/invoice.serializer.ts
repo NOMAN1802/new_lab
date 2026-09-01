@@ -13,10 +13,10 @@ const toPlain = (doc: unknown): TPlain =>
  *
  * The centre prints the commission line on the invoice itself, and a
  * receptionist is the one printing it, so nothing on an individual invoice is
- * withheld from them — gross, waiver, net and commission all come through.
+ * withheld from them — gross, discount, net and commission all come through.
  *
  * The §4.2 restriction is enforced where it still applies: a receptionist gets
- * no aggregate revenue, waiver or commission figures. Their dashboard payload
+ * no aggregate revenue, discount or commission figures. Their dashboard payload
  * carries none, and every financial report and the commission-payout module
  * are admin-only at the route layer.
  *
@@ -30,8 +30,9 @@ export const serializeInvoice = (invoice: TInvoice, role: TUserRole): TPlain => 
 
   const referrer = plain.referrer as TPlain | undefined;
   if (referrer && typeof referrer === 'object') {
-    delete referrer.defaultWaiverPercent;
-    delete referrer.defaultCommissionPercent;
+    delete referrer.defaultDiscountPercent;
+    delete referrer.defaultCommissionType;
+    delete referrer.defaultCommissionValue;
   }
 
   return plain;

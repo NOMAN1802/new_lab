@@ -2,6 +2,7 @@ import { baseApi } from './baseApi';
 import { cleanParams, toPaginated } from './types';
 import type { ApiResponse, ListQuery, Paginated } from './types';
 import type { Referrer } from './referrersApi';
+import type { CommissionType } from './invoicesApi';
 
 export type CommissionPayout = {
     _id: string;
@@ -27,7 +28,8 @@ export type PendingCommission = {
         invoiceNumber: string;
         visitDate: string;
         netPayable: number;
-        commissionPercent: number;
+        commissionType: CommissionType;
+        commissionValue: number;
         commissionAmount: number;
     }[];
     totalPending: number;

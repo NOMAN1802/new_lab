@@ -3,8 +3,9 @@ import { TReferrer } from './referrer.interface';
 
 /** Fields a receptionist must never receive — they encode the commercial terms. */
 const FINANCIAL_FIELDS = [
-  'defaultWaiverPercent',
-  'defaultCommissionPercent',
+  'defaultDiscountPercent',
+  'defaultCommissionType',
+  'defaultCommissionValue',
 ] as const;
 
 type TPlainReferrer = Record<string, unknown>;
@@ -16,7 +17,7 @@ const toPlain = (referrer: TReferrer): TPlainReferrer =>
     : ({ ...referrer } as TPlainReferrer);
 
 /**
- * A receptionist picks a referrer when booking but must not see the waiver or
+ * A receptionist picks a referrer when booking but must not see the discount or
  * commission rates attached to them (proposal §4.2, §5).
  */
 export const serializeReferrer = (

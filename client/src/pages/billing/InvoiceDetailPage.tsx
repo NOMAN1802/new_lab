@@ -11,7 +11,13 @@ import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import StatusBadge from '@/components/common/StatusBadge';
 import { useRole } from '@/hooks/useRole';
-import { apiErrorMessage, formatDate, formatDateTime, money } from '@/lib/format';
+import {
+    apiErrorMessage,
+    commissionBasis,
+    formatDate,
+    formatDateTime,
+    money,
+} from '@/lib/format';
 import {
     useCancelInvoiceMutation,
     useGetInvoiceQuery,
@@ -376,10 +382,10 @@ const InvoiceDetailPage = () => {
                                     {money(invoice.grossAmount)}
                                 </dd>
                             </div>
-                            {invoice.waiverAmount > 0 && (
+                            {invoice.discountAmount > 0 && (
                                 <div className="flex justify-between text-amber-600">
-                                    <dt>Waiver ({invoice.waiverPercent}%)</dt>
-                                    <dd className="tabular-nums">−{money(invoice.waiverAmount)}</dd>
+                                    <dt>Discount ({invoice.discountPercent}%)</dt>
+                                    <dd className="tabular-nums">−{money(invoice.discountAmount)}</dd>
                                 </div>
                             )}
                             <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold">
@@ -403,12 +409,17 @@ const InvoiceDetailPage = () => {
                                 </dd>
                             </div>
 
-                            {/* Commission is admin-only and never on the patient's invoice. */}
+                            {/* Below the line: what the centre pays the referrer.
+                                It is not part of the patient's bill. */}
                             {invoice.referrerInfo && invoice.commissionAmount !== undefined && (
                                 <div className="mt-3 flex justify-between border-t border-dashed border-slate-200 pt-3 text-xs text-slate-500">
                                     <dt>
-                                        Referrer commission ({invoice.commissionPercent}% of net) ·{' '}
-                                        {invoice.commissionStatus}
+                                        Referrer commission (
+                                        {commissionBasis(
+                                            invoice.commissionType,
+                                            invoice.commissionValue
+                                        )}
+                                        ) · {invoice.commissionStatus}
                                     </dt>
                                     <dd className="tabular-nums">{money(invoice.commissionAmount)}</dd>
                                 </div>

@@ -10,6 +10,18 @@ export const money = (value?: number | null): string =>
 export const percent = (value?: number | null): string =>
     value === undefined || value === null ? '—' : `${value}%`;
 
+/**
+ * How a commission was arrived at, e.g. "15% of paid" or "flat ৳500".
+ * The value means a percentage or a taka figure depending on the type.
+ */
+export const commissionBasis = (
+    type?: 'percent' | 'fixed' | null,
+    value?: number | null
+): string => {
+    if (value === undefined || value === null) return '—';
+    return type === 'fixed' ? `flat ${money(value)}` : `${value}% of paid`;
+};
+
 const DHAKA = 'Asia/Dhaka';
 
 export const formatDate = (value?: string | Date | null): string =>

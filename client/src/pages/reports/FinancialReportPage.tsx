@@ -112,10 +112,10 @@ const FinancialReportPage = () => {
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard label="Gross billed" value={money(summary.grossBilled)} />
                         <StatCard
-                            label="Waivers given"
-                            value={money(summary.waiverGiven)}
+                            label="Discounts given"
+                            value={money(summary.discountGiven)}
                             trend={{
-                                value: summary.waiverRate,
+                                value: summary.discountRate,
                                 isPositive: false,
                                 label: 'of gross',
                             }}

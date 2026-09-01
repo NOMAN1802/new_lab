@@ -84,7 +84,8 @@ const rejects = async (label, fn, matcher) => {
 
         const referrer = await Referrer.create({
             referrerCode: 'RFE-001', name: 'Dr. Rakesh Shaha', phone: '01711111111',
-            defaultWaiverPercent: 10, defaultCommissionPercent: 15,
+            defaultDiscountPercent: 10,
+            defaultCommissionType: 'percent', defaultCommissionValue: 15,
         });
 
         // Through the service, not the model, so patient numbering and the
@@ -96,7 +97,7 @@ const rejects = async (label, fn, matcher) => {
         );
         check('patient id assigned', patient.patientId, 'PT-000001');
 
-        console.log('--- 1: booking 3 tests (2000) with 10% waiver / 15% commission ---');
+        console.log('--- 1: booking 3 tests (2000) with 10% discount / 15% commission ---');
         let invoice = await InvoiceServices.createInvoice(
             { patient: String(patient._id), referrer: String(referrer._id),
               testIds: [String(cbc._id), String(lipid._id), String(xray._id)] },
@@ -107,12 +108,14 @@ const rejects = async (label, fn, matcher) => {
         check('invoice number is NLDC-MM-DD-YY-NNN',
             invoice.invoiceNumber, `NLDC-${mm}-${dd}-${yy}-001`);
         check('gross', invoice.grossAmount, 2000);
-        check('waiver', invoice.waiverAmount, 200);
+        check('discount', invoice.discountAmount, 200);
         check('net payable', invoice.netPayable, 1800);
         check('commission (15% of net)', invoice.commissionAmount, 270);
         check('due', invoice.dueAmount, 1800);
         check('status', invoice.paymentStatus, 'unpaid');
-        check('rates frozen onto invoice', [invoice.waiverPercent, invoice.commissionPercent], [10, 15]);
+        check('terms frozen onto invoice',
+            [invoice.discountPercent, invoice.commissionType, invoice.commissionValue],
+            [10, 'percent', 15]);
         check('patient snapshot taken', invoice.patientInfo.patientId, 'PT-000001');
 
         console.log('\n--- 2: prices come from the catalogue, not the request ---');
@@ -120,7 +123,7 @@ const rejects = async (label, fn, matcher) => {
         const tampered = await InvoiceServices.createInvoice(
             { patient: String(patient._id), testIds: [String(cbc._id)],
               grossAmount: 1, netPayable: 1, paidAmount: 999,
-              items: [{ price: 1 }], waiverPercent: 0 },
+              items: [{ price: 1 }], discountPercent: 0 },
             String(reception._id)
         );
         check('price taken from Test collection', tampered.items[0].price, 800);
@@ -191,18 +194,19 @@ const rejects = async (label, fn, matcher) => {
         check('a receipt was issued with the booking', counterReceipts.length, 1);
         check('receipt amount', counterReceipts[0].amount, 700);
 
-        // A fully waived visit has nothing to collect and must not create a
+        // A fully discounted visit has nothing to collect and must not create a
         // zero-value receipt.
         const fullyWaived = await Referrer.create({
-            referrerCode: 'RFE-FREE', name: 'Camp Waiver', phone: '01722222222',
-            defaultWaiverPercent: 100, defaultCommissionPercent: 0,
+            referrerCode: 'RFE-FREE', name: 'Camp Discount', phone: '01722222222',
+            defaultDiscountPercent: 100,
+            defaultCommissionType: 'percent', defaultCommissionValue: 0,
         });
         const freeVisit = await InvoiceServices.createInvoice(
             { patient: String(patient._id), referrer: String(fullyWaived._id),
               testIds: [String(xray._id)], collectFullPayment: true },
             String(reception._id)
         );
-        check('fully waived invoice is already paid', freeVisit.paymentStatus, 'paid');
+        check('fully discounted invoice is already paid', freeVisit.paymentStatus, 'paid');
         check('no zero-value receipt created',
             (await PaymentServices.getInvoicePayments(String(freeVisit._id))).length, 0);
 
@@ -211,7 +215,7 @@ const rejects = async (label, fn, matcher) => {
             { patient: String(patient._id), testIds: [String(xray._id)] },
             String(reception._id)
         );
-        check('no waiver', walkIn.waiverAmount, 0);
+        check('no discount', walkIn.discountAmount, 0);
         check('net equals gross', walkIn.netPayable, walkIn.grossAmount);
         check('no commission accrues', walkIn.commissionAmount, 0);
         check('no referrer attached', walkIn.referrer, undefined);
@@ -228,7 +232,7 @@ const rejects = async (label, fn, matcher) => {
         check('admin sees commission', typeof asAdmin.commissionAmount, 'number');
         check('receptionist: commission retained for the invoice', asReception.commissionAmount, 270);
         check('receptionist: gross retained', asReception.grossAmount, 2000);
-        check('receptionist: waiver retained', asReception.waiverAmount, 200);
+        check('receptionist: discount retained', asReception.discountAmount, 200);
         check('receptionist: net retained', asReception.netPayable, 1800);
         check('receptionist: due retained', asReception.dueAmount, 800);
 
@@ -236,10 +240,10 @@ const rejects = async (label, fn, matcher) => {
         // their patients, not a figure on this invoice.
         const populated = await Invoice.findById(invoice._id).populate('referrer');
         const withReferrer = serializeInvoice(populated, 'receptionist');
-        check('receptionist: referrer default waiver withheld',
-            'defaultWaiverPercent' in withReferrer.referrer, false);
+        check('receptionist: referrer default discount withheld',
+            'defaultDiscountPercent' in withReferrer.referrer, false);
         check('receptionist: referrer default commission withheld',
-            'defaultCommissionPercent' in withReferrer.referrer, false);
+            'defaultCommissionValue' in withReferrer.referrer, false);
 
         console.log('\n--- 7: invoice edits respect the ledger ---');
         await rejects(
@@ -296,10 +300,10 @@ const rejects = async (label, fn, matcher) => {
         check('cash collected matches the payment ledger', financial.cashCollected, ledgerTotal);
         // 1000 on the first invoice (800 of it voided) + 700 taken at the counter
         check('cash collected excludes the voided receipt', financial.cashCollected, 1700);
-        // invoice, tampered, same-day, counter-settled, fully-waived, walk-in
+        // invoice, tampered, same-day, counter-settled, fully-discounted, walk-in
         check('invoices counted', financial.invoiceCount, 6);
         check('gross billed', financial.grossBilled, 2000 + 800 + 800 + 700 + 500 + 500);
-        check('waiver given', financial.waiverGiven, 200 + 500);
+        check('discount given', financial.discountGiven, 200 + 500);
 
         const dues = await ReportsServices.getDuesReport(wide);
         const outstandingSum = (await Invoice.aggregate([

@@ -22,8 +22,10 @@ const createReferrerValidationSchema = z.object({
       .trim()
       .min(6, 'Phone number is too short'),
     address: z.string().trim().optional(),
-    defaultWaiverPercent: percent.optional(),
-    defaultCommissionPercent: percent.optional(),
+    defaultDiscountPercent: percent.optional(),
+    defaultCommissionType: z.enum(['percent', 'fixed']).optional(),
+    // Percentage or flat taka depending on the type, so only bounded below.
+    defaultCommissionValue: z.number().min(0, 'Cannot be negative').optional(),
     isActive: z.boolean().optional(),
   }),
 });
@@ -36,8 +38,10 @@ const updateReferrerValidationSchema = z.object({
     hospital: z.string().trim().optional(),
     phone: z.string().trim().min(6).optional(),
     address: z.string().trim().optional(),
-    defaultWaiverPercent: percent.optional(),
-    defaultCommissionPercent: percent.optional(),
+    defaultDiscountPercent: percent.optional(),
+    defaultCommissionType: z.enum(['percent', 'fixed']).optional(),
+    // Percentage or flat taka depending on the type, so only bounded below.
+    defaultCommissionValue: z.number().min(0, 'Cannot be negative').optional(),
     isActive: z.boolean().optional(),
   }),
 });

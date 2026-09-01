@@ -1,9 +1,13 @@
 import { isSettled, percentOf, round2, sum } from '../../utils/money';
-import { TInvoiceItem, TPaymentStatus } from './invoice.interface';
+import {
+  TCommissionType,
+  TInvoiceItem,
+  TPaymentStatus,
+} from './invoice.interface';
 
 export type TInvoiceTotals = {
   grossAmount: number;
-  waiverAmount: number;
+  discountAmount: number;
   netPayable: number;
   commissionAmount: number;
   dueAmount: number;
@@ -13,32 +17,41 @@ export type TInvoiceTotals = {
 /**
  * The single place invoice money is derived.
  *
- * gross      = sum of item prices
- * waiver     = gross x waiverPercent
- * net        = gross - waiver            <- what the patient owes
- * commission = net x commissionPercent   <- referrer earns on net, not gross
- * due        = net - paid
+ *   gross    = sum of test prices from the catalogue
+ *   discount = gross x discountPercent      <- comes off what the PATIENT pays
+ *   net      = gross - discount             <- what the patient hands over
  *
- * Nothing here is ever taken from the request body: prices come from the Test
- * catalogue and paidAmount from the Payment ledger.
+ * Commission is a separate arrangement between the centre and the referring
+ * doctor. It does not touch the patient's bill, and the centre sets it per
+ * invoice as either a percentage of the net the patient pays, or a flat taka
+ * figure.
+ *
+ *   commission = net x value   (type 'percent')
+ *              = value         (type 'fixed')
  */
 export const computeTotals = (
   items: Pick<TInvoiceItem, 'price'>[],
-  waiverPercent: number,
-  commissionPercent: number,
+  discountPercent: number,
+  commissionType: TCommissionType,
+  commissionValue: number,
   paidAmount = 0
 ): TInvoiceTotals => {
   const grossAmount = sum(items.map((item) => item.price));
-  const waiverAmount = percentOf(grossAmount, waiverPercent);
-  const netPayable = round2(grossAmount - waiverAmount);
-  const commissionAmount = percentOf(netPayable, commissionPercent);
+  const discountAmount = percentOf(grossAmount, discountPercent);
+  const netPayable = round2(grossAmount - discountAmount);
+
+  const commissionAmount = computeCommission(
+    netPayable,
+    commissionType,
+    commissionValue
+  );
 
   const rawDue = round2(netPayable - paidAmount);
   const dueAmount = rawDue < 0 ? 0 : rawDue;
 
   return {
     grossAmount,
-    waiverAmount,
+    discountAmount,
     netPayable,
     commissionAmount,
     dueAmount,
@@ -47,8 +60,25 @@ export const computeTotals = (
 };
 
 /**
+ * A flat commission is taken as entered. A percentage is applied to the net
+ * payable — the figure the patient actually settles — not the gross, so a
+ * discount reduces the commission alongside the bill.
+ */
+export const computeCommission = (
+  netPayable: number,
+  commissionType: TCommissionType,
+  commissionValue: number
+): number => {
+  if (!commissionValue || commissionValue <= 0) return 0;
+
+  return commissionType === 'fixed'
+    ? round2(commissionValue)
+    : percentOf(netPayable, commissionValue);
+};
+
+/**
  * Status is a function of the ledger, never a field a caller can set.
- * A zero-value invoice (fully waived) counts as paid.
+ * A zero-value invoice (fully discounted) counts as paid.
  */
 export const derivePaymentStatus = (
   netPayable: number,

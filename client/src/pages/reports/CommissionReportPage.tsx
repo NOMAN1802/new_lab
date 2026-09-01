@@ -15,7 +15,7 @@ const COLUMNS = [
     { header: 'Hospital', accessor: (r: ReferralCommissionRow) => r.hospital ?? '' },
     { header: 'Invoices', accessor: (r: ReferralCommissionRow) => r.invoiceCount },
     { header: 'Gross billed', accessor: (r: ReferralCommissionRow) => r.grossBilled },
-    { header: 'Waiver given', accessor: (r: ReferralCommissionRow) => r.waiverGiven },
+    { header: 'Discount given', accessor: (r: ReferralCommissionRow) => r.discountGiven },
     { header: 'Net billed', accessor: (r: ReferralCommissionRow) => r.netBilled },
     { header: 'Commission accrued', accessor: (r: ReferralCommissionRow) => r.commissionAccrued },
     { header: 'Commission paid', accessor: (r: ReferralCommissionRow) => r.commissionPaid },
@@ -35,7 +35,7 @@ const CommissionReportPage = () => {
                         Referral &amp; commission
                     </h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Waivers given and commission accrued, paid and pending by referrer.
+                        Discounts given and commission accrued, paid and pending by referrer.
                     </p>
                 </div>
                 <ExportButtons
@@ -57,7 +57,7 @@ const CommissionReportPage = () => {
                 <>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard label="Referrers" value={data.summary.referrers} />
-                        <StatCard label="Waivers given" value={money(data.summary.waiverGiven)} />
+                        <StatCard label="Discounts given" value={money(data.summary.discountGiven)} />
                         <StatCard
                             label="Commission accrued"
                             value={money(data.summary.commissionAccrued)}
@@ -83,7 +83,7 @@ const CommissionReportPage = () => {
                                         <th className="px-5 py-4 font-semibold">Referrer</th>
                                         <th className="px-5 py-4 text-right font-semibold">Invoices</th>
                                         <th className="px-5 py-4 text-right font-semibold">Gross</th>
-                                        <th className="px-5 py-4 text-right font-semibold">Waiver</th>
+                                        <th className="px-5 py-4 text-right font-semibold">Discount</th>
                                         <th className="px-5 py-4 text-right font-semibold">Net</th>
                                         <th className="px-5 py-4 text-right font-semibold">Accrued</th>
                                         <th className="px-5 py-4 text-right font-semibold">Paid</th>
@@ -109,7 +109,7 @@ const CommissionReportPage = () => {
                                                 {money(row.grossBilled)}
                                             </td>
                                             <td className="px-5 py-4 text-right tabular-nums text-amber-600">
-                                                {money(row.waiverGiven)}
+                                                {money(row.discountGiven)}
                                             </td>
                                             <td className="px-5 py-4 text-right tabular-nums text-slate-900">
                                                 {money(row.netBilled)}

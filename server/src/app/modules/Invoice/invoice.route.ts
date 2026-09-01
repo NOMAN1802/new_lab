@@ -8,8 +8,8 @@ import { InvoiceValidations } from './invoice.validation';
 
 const router = express.Router();
 
-// Booking is reception work. The controller strips the waiver and commission
-// figures from what a receptionist receives back.
+// Booking is reception work; per-invoice figures come back in full so the
+// receptionist can print a correct patient invoice.
 router.post(
   '/',
   auth(USER_ROLE.admin, USER_ROLE.receptionist),

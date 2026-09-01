@@ -217,7 +217,7 @@ const DashboardPage = () => {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard label="Collected in period" value={money(data.period.collected)} />
                 <StatCard label="Net billed" value={money(data.period.net)} />
-                <StatCard label="Waivers given" value={money(data.period.waiver)} />
+                <StatCard label="Discounts given" value={money(data.period.discount)} />
                 <StatCard
                     label="Commission pending"
                     value={money(data.commission.pending)}

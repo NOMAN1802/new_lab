@@ -1,9 +1,15 @@
 import { Types } from 'mongoose';
+import { TCommissionType } from '../Invoice/invoice.interface';
 
 /**
- * A referring doctor or agent (RFE). Each carries a default patient-fee
- * waiver and a default commission rate; both pre-fill on booking and are
- * frozen onto the invoice so later rate changes never rewrite history.
+ * A referring doctor or agent (RFE).
+ *
+ * Each carries two independent defaults that pre-fill at booking and are then
+ * frozen onto the invoice, so later changes never rewrite past billing:
+ *
+ *   - the discount this doctor's patients get off their bill
+ *   - what the centre pays the doctor, either a percentage of the net the
+ *     patient pays or a flat taka figure
  */
 export type TReferrer = {
   _id?: Types.ObjectId;
@@ -13,10 +19,12 @@ export type TReferrer = {
   hospital?: string;
   phone: string;
   address?: string;
-  /** Percent discount given to the patient. 0-100. */
-  defaultWaiverPercent: number;
-  /** Percent of net payable owed to the referrer. 0-100. */
-  defaultCommissionPercent: number;
+  /** Percent off the patient's bill. 0-100. */
+  defaultDiscountPercent: number;
+  /** Whether commission is a percentage of net payable, or a flat amount. */
+  defaultCommissionType: TCommissionType;
+  /** A percentage when type is 'percent', a taka figure when 'fixed'. */
+  defaultCommissionValue: number;
   isActive?: boolean;
   isDeleted?: boolean;
   createdBy?: Types.ObjectId;

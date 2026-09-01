@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
-import { formatDate, formatDateTime, money } from '@/lib/format';
+import { commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
 import { useGetInvoiceQuery } from '@/services/invoicesApi';
 import { useGetInvoicePaymentsQuery } from '@/services/paymentsApi';
 
@@ -133,13 +133,13 @@ const PrintInvoicePage = () => {
                                     {money(invoice.grossAmount)}
                                 </dd>
                             </div>
-                            {invoice.waiverAmount > 0 && (
+                            {invoice.discountAmount > 0 && (
                                 <div className="flex justify-between">
                                     <dt className="text-slate-600">
-                                        Waiver ({invoice.waiverPercent}%)
+                                        Discount ({invoice.discountPercent}%)
                                     </dt>
                                     <dd className="tabular-nums text-slate-900">
-                                        −{money(invoice.waiverAmount)}
+                                        −{money(invoice.discountAmount)}
                                     </dd>
                                 </div>
                             )}
@@ -167,8 +167,11 @@ const PrintInvoicePage = () => {
                                     <div className="mt-2 flex justify-between border-t border-dashed border-slate-300 pt-2">
                                         <dt className="text-slate-600">
                                             Referrer commission
-                                            {invoice.commissionPercent
-                                                ? ` (${invoice.commissionPercent}%)`
+                                            {invoice.commissionValue
+                                                ? ` (${commissionBasis(
+                                                      invoice.commissionType,
+                                                      invoice.commissionValue
+                                                  )})`
                                                 : ''}
                                         </dt>
                                         <dd className="tabular-nums text-slate-900">

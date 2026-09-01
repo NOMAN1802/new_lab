@@ -42,7 +42,7 @@ const billedIn = async (range: TDateRange) => {
         _id: null,
         invoiceCount: { $sum: 1 },
         gross: { $sum: '$grossAmount' },
-        waiver: { $sum: '$waiverAmount' },
+        discount: { $sum: '$discountAmount' },
         net: { $sum: '$netPayable' },
         due: { $sum: '$dueAmount' },
         commission: { $sum: '$commissionAmount' },
@@ -53,7 +53,7 @@ const billedIn = async (range: TDateRange) => {
   return {
     invoiceCount: result?.invoiceCount ?? 0,
     gross: round2(result?.gross ?? 0),
-    waiver: round2(result?.waiver ?? 0),
+    discount: round2(result?.discount ?? 0),
     net: round2(result?.net ?? 0),
     due: round2(result?.due ?? 0),
     commission: round2(result?.commission ?? 0),
@@ -126,7 +126,7 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
           referrerCode: { $first: '$referrerInfo.referrerCode' },
           invoiceCount: { $sum: 1 },
           gross: { $sum: '$grossAmount' },
-          waiver: { $sum: '$waiverAmount' },
+          discount: { $sum: '$discountAmount' },
           net: { $sum: '$netPayable' },
           collected: { $sum: '$paidAmount' },
           commission: { $sum: '$commissionAmount' },
@@ -202,7 +202,7 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
 };
 
 /**
- * Operational only. No revenue, waiver, commission or profit figures reach
+ * Operational only. No revenue, discount, commission or profit figures reach
  * this payload (proposal §4.2) — dues are included because collecting them is
  * the receptionist's job.
  */

@@ -18,7 +18,11 @@ import { Patient } from '../Patient/patient.model';
 import { Referrer } from '../Referrer/referrer.model';
 import { PaymentServices } from '../Payment/payment.service';
 import { Test } from '../Test/test.model';
-import { TInvoice, TInvoiceItem } from './invoice.interface';
+import {
+  TCommissionType,
+  TInvoice,
+  TInvoiceItem,
+} from './invoice.interface';
 import { Invoice } from './invoice.model';
 import { computeTotals } from './invoice.totals';
 
@@ -48,8 +52,9 @@ export type TCreateInvoiceInput = {
   referrer?: string;
   testIds: string[];
   visitDate?: string;
-  waiverPercent?: number;
-  commissionPercent?: number;
+  discountPercent?: number;
+  commissionType?: TCommissionType;
+  commissionValue?: number;
   notes?: string;
   /** Take the whole net payable as cash immediately — the usual counter case. */
   collectFullPayment?: boolean;
@@ -118,17 +123,29 @@ const createInvoice = async (
 
   const items = await buildItems(payload.testIds);
 
-  // Rates default from the referrer and are frozen onto the invoice, so a
-  // later change to the referrer's terms never rewrites past billing.
-  // A walk-in with no referrer gets no waiver and accrues no commission.
-  const waiverPercent = referrerDoc
-    ? payload.waiverPercent ?? referrerDoc.defaultWaiverPercent
-    : 0;
-  const commissionPercent = referrerDoc
-    ? payload.commissionPercent ?? referrerDoc.defaultCommissionPercent
+  // The discount comes off the patient's bill; it defaults from the referrer
+  // but can be given to a walk-in too, so an explicit value always wins.
+  const discountPercent =
+    payload.discountPercent ?? referrerDoc?.defaultDiscountPercent ?? 0;
+
+  // Commission is a separate arrangement with the referring doctor. With no
+  // referrer there is nobody to pay, so it stays zero whatever was sent.
+  const commissionType = referrerDoc
+    ? payload.commissionType ?? referrerDoc.defaultCommissionType
+    : 'percent';
+  const commissionValue = referrerDoc
+    ? payload.commissionValue ?? referrerDoc.defaultCommissionValue
     : 0;
 
-  const totals = computeTotals(items, waiverPercent, commissionPercent, 0);
+  // Both are frozen onto the invoice below, so later changes to the referrer's
+  // standing terms never rewrite past billing.
+  const totals = computeTotals(
+    items,
+    discountPercent,
+    commissionType,
+    commissionValue,
+    0
+  );
 
   const visitDate = payload.visitDate ? new Date(payload.visitDate) : new Date();
 
@@ -154,8 +171,9 @@ const createInvoice = async (
         }
       : undefined,
     items,
-    waiverPercent,
-    commissionPercent,
+    discountPercent,
+    commissionType,
+    commissionValue,
     ...totals,
     paidAmount: 0,
     commissionStatus: 'pending',
@@ -175,7 +193,7 @@ const createInvoice = async (
       (referrerDoc ? ` (ref. ${referrerDoc.name})` : ' (walk-in)'),
     meta: {
       gross: invoice.grossAmount,
-      waiver: invoice.waiverAmount,
+      discount: invoice.discountAmount,
       net: invoice.netPayable,
       commission: invoice.commissionAmount,
       referrer: referrerDoc?.name,
@@ -183,8 +201,8 @@ const createInvoice = async (
   });
 
   // Settling at the counter is the normal case, so the receipt is issued as
-  // part of the booking rather than as a second step. A fully waived invoice
-  // has nothing to collect and is already marked paid.
+  // part of the booking rather than as a second step. A fully discounted
+  // invoice has nothing to collect and is already marked paid.
   if (payload.collectFullPayment && invoice.netPayable > 0) {
     const { invoice: settled } = await PaymentServices.createPayment(
       { invoice: String(invoice._id), amount: invoice.netPayable },
@@ -256,8 +274,9 @@ const getPatientInvoices = async (patientId: string) => {
 const updateInvoiceItems = async (
   id: string,
   testIds: string[],
-  waiverPercent?: number,
-  commissionPercent?: number
+  discountPercent?: number,
+  commissionType?: TCommissionType,
+  commissionValue?: number
 ): Promise<TInvoice> => {
   const invoice = await Invoice.findById(id);
   if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
@@ -280,13 +299,15 @@ const updateInvoiceItems = async (
   }
 
   const items = await buildItems(testIds);
-  const nextWaiver = waiverPercent ?? invoice.waiverPercent;
-  const nextCommission = commissionPercent ?? invoice.commissionPercent;
+  const nextDiscount = discountPercent ?? invoice.discountPercent;
+  const nextCommissionType = commissionType ?? invoice.commissionType;
+  const nextCommissionValue = commissionValue ?? invoice.commissionValue;
 
   const totals = computeTotals(
     items,
-    nextWaiver,
-    nextCommission,
+    nextDiscount,
+    nextCommissionType,
+    nextCommissionValue,
     invoice.paidAmount
   );
 
@@ -299,8 +320,9 @@ const updateInvoiceItems = async (
 
   invoice.set({
     items,
-    waiverPercent: nextWaiver,
-    commissionPercent: nextCommission,
+    discountPercent: nextDiscount,
+    commissionType: nextCommissionType,
+    commissionValue: nextCommissionValue,
     ...totals,
   });
 
