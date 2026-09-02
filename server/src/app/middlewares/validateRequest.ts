@@ -1,10 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextFunction, Request, Response } from 'express';
-import { AnyZodObject } from 'zod';
+import { AnyZodObject, ZodEffects } from 'zod';
 import { catchAsync } from '../utils/catchAsync';
 
-const validateRequest = (schema: AnyZodObject) => {
+/**
+ * ZodEffects is accepted alongside plain objects so schemas can use
+ * .superRefine() for cross-field rules — the commission value, for instance,
+ * is only capped at 100 when its type is 'percent'.
+ */
+type TRequestSchema = AnyZodObject | ZodEffects<any, any, any>;
+
+const validateRequest = (schema: TRequestSchema) => {
   return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    // validation check
     await schema.parseAsync({
       body: req.body,
       cookies: req.cookies,
@@ -13,13 +20,13 @@ const validateRequest = (schema: AnyZodObject) => {
   });
 };
 
-export const validateRequestCookies = (schema: AnyZodObject) => {
+export const validateRequestCookies = (schema: TRequestSchema) => {
   return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const parsedCookies = await schema.parseAsync({
       cookies: req.cookies,
     });
 
-    req.cookies = parsedCookies.cookies;
+    req.cookies = (parsedCookies as { cookies: Record<string, any> }).cookies;
 
     next();
   });

@@ -1,35 +1,44 @@
-type Status =
-    | 'paid'
-    | 'pending'
-    | 'overdue'
-    | 'partial'
-    | 'draft'
-    | 'completed'
-    | 'partially paid'
-    | 'active'
-    | 'inactive';
+import type { CSSProperties } from 'react';
 
-const statusStyles: Record<Status, string> = {
-    paid: 'bg-emerald-100 text-success',
-    completed: 'bg-emerald-100 text-success',
-    pending: 'bg-amber-100 text-warning',
-    'partially paid': 'bg-blue-100 text-brand',
-    partial: 'bg-blue-100 text-brand',
-    overdue: 'bg-rose-100 text-danger',
-    draft: 'bg-slate-100 text-slate-500',
-    active: 'bg-emerald-100 text-success',
-    inactive: 'bg-slate-200 text-slate-500',
+const styles: Record<string, [string, string]> = {
+    paid: ['var(--success-bg)', 'var(--success-strong)'],
+    completed: ['var(--success-bg)', 'var(--success-strong)'],
+    delivered: ['var(--success-bg)', 'var(--success-strong)'],
+    active: ['var(--success-bg)', 'var(--success-strong)'],
+    pending: ['var(--warning-bg)', 'var(--warning-strong)'],
+    unpaid: ['var(--warning-bg)', 'var(--warning-strong)'],
+    partial: ['var(--info-bg)', 'var(--brand-dark)'],
+    'partially paid': ['var(--info-bg)', 'var(--brand-dark)'],
+    uploaded: ['var(--info-bg)', 'var(--brand-dark)'],
+    overdue: ['var(--danger-bg)', 'var(--danger-strong)'],
+    cancelled: ['var(--danger-bg)', 'var(--danger-strong)'],
+    draft: ['var(--surface-muted)', 'var(--text-muted)'],
+    inactive: ['var(--slate-200)', 'var(--text-muted)'],
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
-    const key = status.toLowerCase() as Status;
-    const classes = statusStyles[key] ?? 'bg-slate-100 text-slate-500';
+/** Invoice, report and account state. Copy stays lowercase in data, Capitalised on screen. */
+const StatusBadge = ({ status = '', style }: { status?: string; style?: CSSProperties }) => {
+    const [bg, fg] = styles[String(status).toLowerCase()] || ['var(--surface-muted)', 'var(--text-muted)'];
     return (
-        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${classes}`}>
+        <span
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-pill)',
+                background: bg,
+                color: fg,
+                fontSize: 'var(--text-12)',
+                fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                fontFamily: 'var(--font-sans)',
+                textTransform: 'capitalize',
+                whiteSpace: 'nowrap',
+                ...style,
+            }}
+        >
             {status}
         </span>
     );
 };
 
 export default StatusBadge;
-

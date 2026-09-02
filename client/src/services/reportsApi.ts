@@ -34,13 +34,13 @@ export type RevenueReport = {
 export type FinancialSummary = {
     invoiceCount: number;
     grossBilled: number;
-    waiverGiven: number;
+    discountGiven: number;
     netBilled: number;
     cashCollected: number;
     outstanding: number;
     commissionAccrued: number;
     netAfterCommission: number;
-    waiverRate: number;
+    discountRate: number;
     collectionRate: number;
 };
 
@@ -51,7 +51,7 @@ export type ReferralCommissionRow = {
     hospital?: string;
     invoiceCount: number;
     grossBilled: number;
-    waiverGiven: number;
+    discountGiven: number;
     netBilled: number;
     collected: number;
     commissionAccrued: number;
@@ -63,7 +63,7 @@ export type ReferralCommissionReport = {
     summary: {
         referrers: number;
         invoiceCount: number;
-        waiverGiven: number;
+        discountGiven: number;
         commissionAccrued: number;
         commissionPaid: number;
         commissionPending: number;

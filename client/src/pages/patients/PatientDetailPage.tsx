@@ -1,27 +1,30 @@
-import { Link, useParams } from 'react-router-dom';
-import { PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
+import StatCard from '@/components/common/StatCard';
 import StatusBadge from '@/components/common/StatusBadge';
+import Button from '@/components/ui/Button';
+import Panel from '@/components/ui/Panel';
 import { useRole } from '@/hooks/useRole';
 import { formatDate, money } from '@/lib/format';
 import { useGetPatientHistoryQuery } from '@/services/invoicesApi';
 
+/** Report state is a dot on the test chip: grey queued, blue uploaded, teal delivered. */
+const REPORT_DOT: Record<string, string> = {
+    delivered: 'var(--success)',
+    uploaded: 'var(--brand)',
+};
+
 const PatientDetailPage = () => {
     const { id } = useParams();
     const { isAdmin } = useRole();
+    const navigate = useNavigate();
 
     const { data, isLoading, isError, refetch } = useGetPatientHistoryQuery(id!);
 
     if (isLoading) return <Loader message="Loading visit history..." />;
     if (isError || !data) {
-        return (
-            <ErrorState
-                title="Could not load patient"
-                description="This patient's history is unavailable."
-                onRetry={refetch}
-            />
-        );
+        return <ErrorState title="Could not load patient" description="This patient's history is unavailable." onRetry={refetch} />;
     }
 
     const { patient, invoices } = data;
@@ -32,139 +35,136 @@ const PatientDetailPage = () => {
             paid: acc.paid + invoice.paidAmount,
             due: acc.due + invoice.dueAmount,
         }),
-        { billed: 0, paid: 0, due: 0 }
+        { billed: 0, paid: 0, due: 0 },
     );
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-wrap items-start justify-between gap-4">
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-semibold text-slate-900">{patient.name}</h1>
-                        <span className="rounded-sm bg-brand/10 px-3 py-1 font-mono text-xs font-semibold text-brand">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{patient.name}</h2>
+                        <span
+                            style={{
+                                background: 'var(--brand-light)',
+                                color: 'var(--brand-dark)',
+                                borderRadius: 'var(--radius-xs)',
+                                padding: '3px 10px',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: 11,
+                                fontWeight: 700,
+                            }}
+                        >
                             {patient.patientId}
                         </span>
                     </div>
-                    <p className="mt-1 text-sm capitalize text-slate-500">
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
                         {patient.age} years · {patient.gender} · {patient.phone}
                         {patient.address ? ` · ${patient.address}` : ''}
                     </p>
                 </div>
-                <div className="flex gap-3">
-                    <Link
-                        to={`/patients/${patient._id}/edit`}
-                        className="inline-flex items-center gap-2 rounded-sm border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                    >
-                        <PencilSquareIcon className="h-5 w-5" />
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <Button variant="secondary" icon="pencil" onClick={() => navigate(`/patients/${patient._id}/edit`)}>
                         Edit
-                    </Link>
-                    <Link
-                        to={`/billing/new?patient=${patient._id}`}
-                        className="inline-flex items-center gap-2 rounded-sm bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-                    >
-                        <PlusIcon className="h-5 w-5" />
+                    </Button>
+                    <Button icon="plus" onClick={() => navigate(`/billing/new?patient=${patient._id}`)}>
                         New visit
-                    </Link>
-                </div>
-            </header>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-sm border border-white/60 bg-white/80 p-5 shadow-card shadow-slate-200/40 backdrop-blur">
-                    <p className="text-sm font-medium text-slate-500">Visits</p>
-                    <p className="mt-2 text-3xl font-semibold text-slate-900">{invoices.length}</p>
-                </div>
-                <div className="rounded-sm border border-white/60 bg-white/80 p-5 shadow-card shadow-slate-200/40 backdrop-blur">
-                    <p className="text-sm font-medium text-slate-500">Total paid</p>
-                    <p className="mt-2 text-3xl font-semibold text-emerald-600 tabular-nums">
-                        {money(totals.paid)}
-                    </p>
-                </div>
-                <div className="rounded-sm border border-white/60 bg-white/80 p-5 shadow-card shadow-slate-200/40 backdrop-blur">
-                    <p className="text-sm font-medium text-slate-500">Outstanding</p>
-                    <p
-                        className={`mt-2 text-3xl font-semibold tabular-nums ${
-                            totals.due > 0 ? 'text-rose-500' : 'text-slate-900'
-                        }`}
-                    >
-                        {money(totals.due)}
-                    </p>
+                    </Button>
                 </div>
             </div>
 
-            <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-slate-900">Visit history</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                <StatCard label="Visits" value={invoices.length} icon="clipboard-list" />
+                <StatCard label="Total paid" value={money(totals.paid)} icon="banknote" accent="accent" />
+                <StatCard
+                    label="Outstanding"
+                    value={money(totals.due)}
+                    icon="triangle-alert"
+                    accent={totals.due > 0 ? 'danger' : 'neutral'}
+                />
+            </div>
 
+            <Panel title="Visit history" subtitle={`${invoices.length} invoice${invoices.length === 1 ? '' : 's'} on file`}>
                 {invoices.length === 0 ? (
-                    <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                        <p className="text-sm font-medium text-slate-500">
-                            No visits recorded for this patient yet.
-                        </p>
-                    </div>
+                    <p
+                        style={{
+                            border: '1px dashed var(--border-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: 'var(--space-8)',
+                            textAlign: 'center',
+                            fontSize: 'var(--text-13)',
+                            color: 'var(--text-muted)',
+                        }}
+                    >
+                        No visits recorded for this patient yet.
+                    </p>
                 ) : (
-                    <div className="space-y-3">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {invoices.map((invoice) => (
                             <article
                                 key={invoice._id}
-                                className={`rounded-sm border bg-white/80 p-5 shadow-card shadow-slate-200/40 backdrop-blur ${
-                                    invoice.isCancelled
-                                        ? 'border-rose-100 opacity-70'
-                                        : 'border-white/60'
-                                }`}
+                                style={{
+                                    border: `1px solid ${invoice.isCancelled ? 'var(--rose-100)' : 'var(--border-card)'}`,
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: 'var(--space-4)',
+                                    opacity: invoice.isCancelled ? 0.7 : 1,
+                                }}
                             >
-                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <Link
-                                            to={`/billing/${invoice._id}`}
-                                            className="font-mono text-sm font-semibold text-brand transition hover:text-brand-dark"
-                                        >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                        <Link to={`/billing/${invoice._id}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600 }}>
                                             {invoice.invoiceNumber}
                                         </Link>
-                                        <span className="text-sm text-slate-500">
-                                            {formatDate(invoice.visitDate)}
-                                        </span>
-                                        {invoice.isCancelled ? (
-                                            <StatusBadge status="cancelled" />
-                                        ) : (
-                                            <StatusBadge status={invoice.paymentStatus} />
-                                        )}
+                                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatDate(invoice.visitDate)}</span>
+                                        <StatusBadge status={invoice.isCancelled ? 'cancelled' : invoice.paymentStatus} />
                                     </div>
-                                    <div className="flex items-center gap-5 text-sm tabular-nums">
-                                        {/* Gross and waiver are withheld from receptionists. */}
-                                        {isAdmin && invoice.waiverAmount !== undefined && invoice.waiverAmount > 0 && (
-                                            <span className="text-amber-600">
-                                                Waiver {money(invoice.waiverAmount)}
-                                            </span>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 18,
+                                            fontSize: 13,
+                                            fontVariantNumeric: 'tabular-nums',
+                                            flexWrap: 'wrap',
+                                        }}
+                                    >
+                                        {/* Gross and discount are withheld from receptionists. */}
+                                        {isAdmin && invoice.discountAmount !== undefined && invoice.discountAmount > 0 && (
+                                            <span style={{ color: 'var(--warning-strong)' }}>Discount {money(invoice.discountAmount)}</span>
                                         )}
-                                        <span className="text-slate-600">
-                                            Payable{' '}
-                                            <strong className="text-slate-900">
-                                                {money(invoice.netPayable)}
-                                            </strong>
+                                        <span style={{ color: 'var(--text-muted)' }}>
+                                            Payable <strong style={{ color: 'var(--text-heading)' }}>{money(invoice.netPayable)}</strong>
                                         </span>
                                         {invoice.dueAmount > 0 && (
-                                            <span className="text-rose-500">
-                                                Due {money(invoice.dueAmount)}
-                                            </span>
+                                            <span style={{ color: 'var(--danger-strong)', fontWeight: 600 }}>Due {money(invoice.dueAmount)}</span>
                                         )}
                                     </div>
                                 </div>
 
-                                <ul className="mt-4 flex flex-wrap gap-2">
+                                <ul style={{ listStyle: 'none', margin: '14px 0 0', padding: 0, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                                     {invoice.items.map((item) => (
                                         <li
                                             key={item._id}
-                                            className="inline-flex items-center gap-2 rounded-sm bg-slate-100 px-3 py-1 text-xs text-slate-600"
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                background: 'var(--surface-muted)',
+                                                borderRadius: 'var(--radius-pill)',
+                                                padding: '4px 12px',
+                                                fontSize: 12,
+                                                color: 'var(--text-body)',
+                                            }}
                                         >
                                             {item.testName}
                                             <span
-                                                className={`h-1.5 w-1.5 rounded-sm ${
-                                                    item.reportStatus === 'delivered'
-                                                        ? 'bg-emerald-500'
-                                                        : item.reportStatus === 'uploaded'
-                                                          ? 'bg-blue-500'
-                                                          : 'bg-slate-300'
-                                                }`}
                                                 title={`Report ${item.reportStatus}`}
+                                                style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
+                                                    background: REPORT_DOT[item.reportStatus] ?? 'var(--slate-300)',
+                                                }}
                                             />
                                         </li>
                                     ))}
@@ -173,8 +173,8 @@ const PatientDetailPage = () => {
                         ))}
                     </div>
                 )}
-            </section>
-        </div>
+            </Panel>
+        </>
     );
 };
 

@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 
 export type TPaymentStatus = 'unpaid' | 'partial' | 'paid';
+export type TCommissionType = 'percent' | 'fixed';
 export type TReportStatus = 'pending' | 'uploaded' | 'delivered';
 export type TCommissionStatus = 'pending' | 'paid';
 
@@ -62,12 +63,12 @@ export type TInvoice = {
 
   items: TInvoiceItem[];
 
-  /** Sum of item prices, before any waiver. */
+  /** Sum of item prices, before any discount. */
   grossAmount: number;
-  /** Rate frozen from the referrer at booking time. */
-  waiverPercent: number;
-  waiverAmount: number;
-  /** grossAmount - waiverAmount. What the patient owes. */
+  /** Percent off the patient's bill. Defaults from the referrer. */
+  discountPercent: number;
+  discountAmount: number;
+  /** grossAmount - discountAmount. What the patient owes. */
   netPayable: number;
 
   /** Cache of the non-voided Payment total. Never client-supplied. */
@@ -77,8 +78,11 @@ export type TInvoice = {
   /** Derived from paidAmount vs netPayable. Never client-supplied. */
   paymentStatus: TPaymentStatus;
 
-  commissionPercent: number;
-  /** netPayable * commissionPercent. Owed to the referrer. */
+  /** How the centre pays this referrer on this invoice. */
+  commissionType: TCommissionType;
+  /** A percentage when type is 'percent', a taka figure when 'fixed'. */
+  commissionValue: number;
+  /** Derived from type + value. Owed to the referrer. */
   commissionAmount: number;
   commissionStatus: TCommissionStatus;
   commissionPayout?: Types.ObjectId;

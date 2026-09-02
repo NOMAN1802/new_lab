@@ -1,10 +1,15 @@
 import { baseApi } from './baseApi';
 import { cleanParams, toPaginated } from './types';
 import type { ApiResponse, ListQuery, Paginated } from './types';
+import type { CommissionType } from './invoicesApi';
 
 /**
- * defaultWaiverPercent and defaultCommissionPercent are omitted by the API for
- * receptionists — treat them as optional everywhere in the UI.
+ * The default* fields are the referrer's standing terms and are omitted by the
+ * API for receptionists, so treat them as optional everywhere in the UI.
+ *
+ * Discount comes off the patient's bill. Commission is what the centre pays
+ * the referrer, either a percentage of the net the patient pays or a flat
+ * taka amount — `defaultCommissionValue` means whichever the type says.
  */
 export type Referrer = {
     _id: string;
@@ -14,8 +19,9 @@ export type Referrer = {
     hospital?: string;
     phone: string;
     address?: string;
-    defaultWaiverPercent?: number;
-    defaultCommissionPercent?: number;
+    defaultDiscountPercent?: number;
+    defaultCommissionType?: CommissionType;
+    defaultCommissionValue?: number;
     isActive: boolean;
     createdAt: string;
 };
@@ -27,8 +33,9 @@ export type ReferrerInput = {
     hospital?: string;
     phone: string;
     address?: string;
-    defaultWaiverPercent?: number;
-    defaultCommissionPercent?: number;
+    defaultDiscountPercent?: number;
+    defaultCommissionType?: CommissionType;
+    defaultCommissionValue?: number;
     isActive?: boolean;
 };
 

@@ -109,7 +109,7 @@ const getFinancialSummary = async (range: TDateRange) => {
           _id: null,
           invoiceCount: { $sum: 1 },
           gross: { $sum: '$grossAmount' },
-          waiver: { $sum: '$waiverAmount' },
+          discount: { $sum: '$discountAmount' },
           net: { $sum: '$netPayable' },
           due: { $sum: '$dueAmount' },
           commission: { $sum: '$commissionAmount' },
@@ -124,7 +124,7 @@ const getFinancialSummary = async (range: TDateRange) => {
 
   const b = billed[0] ?? {};
   const grossBilled = round2(b.gross ?? 0);
-  const waiverGiven = round2(b.waiver ?? 0);
+  const discountGiven = round2(b.discount ?? 0);
   const netBilled = round2(b.net ?? 0);
   const commissionAccrued = round2(b.commission ?? 0);
   const cashCollected = round2(collected[0]?.collected ?? 0);
@@ -132,20 +132,20 @@ const getFinancialSummary = async (range: TDateRange) => {
   return {
     invoiceCount: b.invoiceCount ?? 0,
     grossBilled,
-    waiverGiven,
+    discountGiven,
     netBilled,
     cashCollected,
     outstanding: round2(b.due ?? 0),
     commissionAccrued,
     /** What the centre keeps once referrer commission is settled. */
     netAfterCommission: round2(netBilled - commissionAccrued),
-    waiverRate: grossBilled > 0 ? round2((waiverGiven / grossBilled) * 100) : 0,
+    discountRate: grossBilled > 0 ? round2((discountGiven / grossBilled) * 100) : 0,
     collectionRate:
       netBilled > 0 ? round2((cashCollected / netBilled) * 100) : 0,
   };
 };
 
-/** Waivers given and commission owed, per referrer. Admin only. */
+/** Discounts given and commission owed, per referrer. Admin only. */
 const getReferralCommissionReport = async (range: TDateRange) => {
   const rows = await Invoice.aggregate([
     {
@@ -163,7 +163,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
         hospital: { $first: '$referrerInfo.hospital' },
         invoiceCount: { $sum: 1 },
         grossBilled: { $sum: '$grossAmount' },
-        waiverGiven: { $sum: '$waiverAmount' },
+        discountGiven: { $sum: '$discountAmount' },
         netBilled: { $sum: '$netPayable' },
         collected: { $sum: '$paidAmount' },
         commissionAccrued: { $sum: '$commissionAmount' },
@@ -192,7 +192,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
     (acc, row) => ({
       referrers: acc.referrers + 1,
       invoiceCount: acc.invoiceCount + row.invoiceCount,
-      waiverGiven: acc.waiverGiven + row.waiverGiven,
+      discountGiven: acc.discountGiven + row.discountGiven,
       commissionAccrued: acc.commissionAccrued + row.commissionAccrued,
       commissionPaid: acc.commissionPaid + row.commissionPaid,
       commissionPending: acc.commissionPending + row.commissionPending,
@@ -200,7 +200,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
     {
       referrers: 0,
       invoiceCount: 0,
-      waiverGiven: 0,
+      discountGiven: 0,
       commissionAccrued: 0,
       commissionPaid: 0,
       commissionPending: 0,
@@ -210,7 +210,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
   return {
     summary: {
       ...summary,
-      waiverGiven: round2(summary.waiverGiven),
+      discountGiven: round2(summary.discountGiven),
       commissionAccrued: round2(summary.commissionAccrued),
       commissionPaid: round2(summary.commissionPaid),
       commissionPending: round2(summary.commissionPending),

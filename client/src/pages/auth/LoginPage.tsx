@@ -1,21 +1,29 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CENTRE } from '@/lib/centre';
 import { apiErrorMessage } from '@/lib/format';
 import { useLoginMutation } from '@/services/authApi';
+import Button from '@/components/ui/Button';
+import TextField from '@/components/ui/TextField';
+import Icon from '@/components/ui/Icon';
+import type { IconName } from '@/components/ui/Icon';
+import InlineAlert from '@/components/ui/InlineAlert';
+import LogoMark from '@/components/ui/LogoMark';
+
+const HIGHLIGHTS: [IconName, string][] = [
+    ['banknote', 'Cash billing with partial payments'],
+    ['user-round-search', 'Referrer discount and commission tracking'],
+    ['file-text', 'Report handling, Dhaka-day accurate'],
+];
 
 const LoginPage = () => {
     const [formState, setFormState] = useState({ email: '', password: '' });
     const [error, setError] = useState<string | null>(null);
-    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const [login, { isLoading }] = useLoginMutation();
 
-    const redirectPath =
-        (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
-        '/';
+    const redirectPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -25,140 +33,148 @@ const LoginPage = () => {
             await login(formState).unwrap();
             navigate(redirectPath, { replace: true });
         } catch (err) {
-            setError(
-                apiErrorMessage(err, 'Unable to sign in. Check your credentials.')
-            );
+            setError(apiErrorMessage(err, 'Unable to sign in. Check your credentials.'));
         }
     };
 
-    const inputClass =
-        'w-full rounded-sm border border-slate-200 bg-white py-3.5 pl-12 pr-4 text-sm text-slate-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
-
     return (
-        <div className="flex min-h-screen bg-slate-50">
+        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--surface-page)' }}>
             {/* Brand panel */}
-            <div className="relative hidden overflow-hidden bg-linear-to-br from-brand via-brand-dark to-slate-900 lg:flex lg:w-2/5">
-                <div className="relative z-10 flex flex-col justify-between p-12 text-white">
+            <div
+                className="hidden lg:flex"
+                style={{
+                    width: '42%',
+                    minWidth: 380,
+                    background: 'var(--brand)',
+                    color: '#fff',
+                    padding: 56,
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}
+            >
+                <div
+                    style={{
+                        position: 'absolute',
+                        width: 520,
+                        height: 520,
+                        borderRadius: '50%',
+                        background: 'var(--indigo-400)',
+                        opacity: 0.35,
+                        right: -180,
+                        top: -160,
+                    }}
+                />
+                <div
+                    style={{
+                        position: 'absolute',
+                        width: 340,
+                        height: 340,
+                        borderRadius: '50%',
+                        background: 'var(--indigo-700)',
+                        opacity: 0.45,
+                        left: -120,
+                        bottom: -140,
+                    }}
+                />
+
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <LogoMark size={40} style={{ borderRadius: 12 }} />
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
+                        <p
+                            style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                letterSpacing: 'var(--tracking-eyebrow)',
+                                textTransform: 'uppercase',
+                                opacity: 0.75,
+                            }}
+                        >
                             Diagnostic Centre
                         </p>
-                        <h1 className="mt-3 text-3xl font-bold leading-tight">
-                            {CENTRE.name}
-                        </h1>
+                        <p style={{ fontSize: 15, fontWeight: 700 }}>{CENTRE.name}</p>
                     </div>
-
-                    <div className="space-y-4">
-                        <h2 className="text-2xl font-semibold leading-snug">
-                            Billing &amp; Management System
-                        </h2>
-                        <p className="text-sm leading-relaxed text-white/70">
-                            Patient registration, test billing, cash collection, referral
-                            commission and diagnostic reports — in one place.
-                        </p>
-                    </div>
-
-                    <p className="text-xs text-white/50">
-                        © {new Date().getFullYear()} {CENTRE.name}. All rights reserved.
-                    </p>
                 </div>
+
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <h1 style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-.01em' }}>
+                        Billing &amp; Management System
+                    </h1>
+                    <p style={{ fontSize: 15, lineHeight: 1.6, color: 'rgba(255,255,255,.78)', maxWidth: 380 }}>
+                        Patient registration, test billing, cash collection, referral commission and diagnostic reports — in one place.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+                        {HIGHLIGHTS.map(([icon, text]) => (
+                            <span key={text} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,.85)' }}>
+                                <span
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 28,
+                                        height: 28,
+                                        borderRadius: 8,
+                                        background: 'rgba(255,255,255,.16)',
+                                    }}
+                                >
+                                    <Icon name={icon} size={15} />
+                                </span>
+                                {text}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                <p style={{ position: 'relative', fontSize: 12, color: 'rgba(255,255,255,.55)' }}>
+                    © {new Date().getFullYear()} {CENTRE.name}. All rights reserved.
+                </p>
             </div>
 
             {/* Sign-in form */}
-            <div className="flex flex-1 items-center justify-center p-6 lg:p-12">
-                <div className="w-full max-w-md">
-                    <div className="mb-8 text-center">
-                        <h2 className="text-2xl font-bold text-slate-900">Sign in</h2>
-                        <p className="mt-2 text-sm text-slate-500">
-                            Use the account provided by your administrator.
-                        </p>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+                <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 6 }}>
+                        <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-heading)' }}>Sign in</h2>
+                        <p style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>Use the account provided by your administrator.</p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div>
-                            <label
-                                htmlFor="email"
-                                className="mb-1.5 block text-sm font-medium text-slate-700"
-                            >
-                                Email
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    id="email"
-                                    type="email"
-                                    autoComplete="username"
-                                    required
-                                    className={inputClass}
-                                    placeholder="you@example.com"
-                                    value={formState.email}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            email: event.target.value,
-                                        }))
-                                    }
-                                />
-                            </div>
-                        </div>
+                    <TextField
+                        label="Email"
+                        icon="mail"
+                        type="email"
+                        id="email"
+                        autoComplete="username"
+                        required
+                        size="lg"
+                        placeholder="you@example.com"
+                        value={formState.email}
+                        onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))}
+                    />
 
-                        <div>
-                            <label
-                                htmlFor="password"
-                                className="mb-1.5 block text-sm font-medium text-slate-700"
-                            >
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    autoComplete="current-password"
-                                    required
-                                    className={`${inputClass} pr-12`}
-                                    placeholder="••••••••"
-                                    value={formState.password}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            password: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword((value) => !value)}
-                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-                                >
-                                    {showPassword ? (
-                                        <EyeOff className="h-5 w-5" />
-                                    ) : (
-                                        <Eye className="h-5 w-5" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                    <TextField
+                        label="Password"
+                        icon="lock"
+                        type="password"
+                        id="password"
+                        autoComplete="current-password"
+                        required
+                        size="lg"
+                        placeholder="••••••••"
+                        value={formState.password}
+                        onChange={(event) => setFormState((prev) => ({ ...prev, password: event.target.value }))}
+                    />
 
-                        {error && (
-                            <p
-                                role="alert"
-                                className="rounded-sm bg-rose-50 px-4 py-3 text-sm text-rose-600"
-                            >
-                                {error}
-                            </p>
-                        )}
+                    {error && <InlineAlert tone="error">{error}</InlineAlert>}
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full rounded-sm bg-brand px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-60"
-                        >
-                            {isLoading ? 'Signing in...' : 'Sign in'}
-                        </button>
-                    </form>
-                </div>
+                    <Button type="submit" size="lg" block loading={isLoading}>
+                        {isLoading ? 'Signing in...' : 'Sign in'}
+                    </Button>
+
+                    <p style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
+                        Access is role-based and enforced by the API. Receptionists never see aggregate revenue or commission.
+                    </p>
+                </form>
             </div>
         </div>
     );

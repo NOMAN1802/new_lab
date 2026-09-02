@@ -12,7 +12,7 @@ export type ReferrerSummaryRow = {
     referrerCode: string;
     invoiceCount: number;
     gross: number;
-    waiver: number;
+    discount: number;
     net: number;
     collected: number;
     commission: number;
@@ -31,7 +31,7 @@ export type AdminDashboard = {
         newPatients: number;
         invoiceCount: number;
         gross: number;
-        waiver: number;
+        discount: number;
         net: number;
         due: number;
         commission: number;
@@ -40,7 +40,7 @@ export type AdminDashboard = {
         collected: number;
         invoiceCount: number;
         gross: number;
-        waiver: number;
+        discount: number;
         net: number;
         due: number;
         commission: number;

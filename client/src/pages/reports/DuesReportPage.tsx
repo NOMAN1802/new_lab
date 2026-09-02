@@ -7,6 +7,8 @@ import ExportButtons from '@/components/common/ExportButtons';
 import Loader from '@/components/common/Loader';
 import StatCard from '@/components/common/StatCard';
 import StatusBadge from '@/components/common/StatusBadge';
+import DataTable from '@/components/ui/DataTable';
+import Panel from '@/components/ui/Panel';
 import { formatDate, money } from '@/lib/format';
 import { useGetDuesReportQuery } from '@/services/reportsApi';
 import type { DuesReportRow } from '@/services/reportsApi';
@@ -28,13 +30,11 @@ const DuesReportPage = () => {
     const { data, isLoading, isError, refetch } = useGetDuesReportQuery(range);
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-wrap items-center justify-between gap-4">
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">
-                        Outstanding payments
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Outstanding payments</h2>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)', maxWidth: 620 }}>
                         Every invoice still carrying a balance, largest first.
                     </p>
                 </div>
@@ -45,7 +45,7 @@ const DuesReportPage = () => {
                     columns={COLUMNS}
                     rows={data?.rows ?? []}
                 />
-            </header>
+            </div>
 
             <DateRangePicker value={range} onChange={setRange} />
 
@@ -55,84 +55,75 @@ const DuesReportPage = () => {
                 <ErrorState title="Could not load the dues report" onRetry={refetch} />
             ) : (
                 <>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard
                             label="Total outstanding"
                             value={money(data.summary.totalDue)}
-                            accent="bg-rose-100 text-rose-600"
+                            icon="triangle-alert"
+                            accent="danger"
+                            caption="Across the selected range"
                         />
-                        <StatCard label="Invoices with a balance" value={data.summary.invoiceCount} />
+                        <StatCard label="Invoices with a balance" value={data.summary.invoiceCount} icon="receipt-text" accent="warning" />
                     </div>
 
-                    {data.rows.length === 0 ? (
-                        <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                            <p className="text-sm font-medium text-slate-500">
-                                Nothing outstanding in this date range.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto rounded-sm border border-white/60 bg-white/80 shadow-card shadow-slate-200/40 backdrop-blur">
-                            <table className="w-full min-w-[54rem] text-left text-sm">
-                                <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                                    <tr>
-                                        <th className="px-5 py-4 font-semibold">Invoice</th>
-                                        <th className="px-5 py-4 font-semibold">Date</th>
-                                        <th className="px-5 py-4 font-semibold">Patient</th>
-                                        <th className="px-5 py-4 font-semibold">Referrer</th>
-                                        <th className="px-5 py-4 text-right font-semibold">Payable</th>
-                                        <th className="px-5 py-4 text-right font-semibold">Paid</th>
-                                        <th className="px-5 py-4 text-right font-semibold">Due</th>
-                                        <th className="px-5 py-4 font-semibold">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {data.rows.map((row) => (
-                                        <tr key={row._id} className="hover:bg-slate-50/70">
-                                            <td className="px-5 py-4">
-                                                <Link
-                                                    to={`/billing/${row._id}`}
-                                                    className="font-mono text-xs font-semibold text-brand transition hover:text-brand-dark"
-                                                >
-                                                    {row.invoiceNumber}
-                                                </Link>
-                                            </td>
-                                            <td className="px-5 py-4 text-slate-500">
-                                                {formatDate(row.visitDate)}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <p className="font-medium text-slate-900">
-                                                    {row.patientInfo.name}
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    {row.patientInfo.patientId} · {row.patientInfo.phone}
-                                                </p>
-                                            </td>
-                                            <td className="px-5 py-4 text-slate-600">
-                                                {row.referrerInfo?.name ?? (
-                                                    <span className="text-slate-400">Walk-in</span>
-                                                )}
-                                            </td>
-                                            <td className="px-5 py-4 text-right tabular-nums text-slate-900">
-                                                {money(row.netPayable)}
-                                            </td>
-                                            <td className="px-5 py-4 text-right tabular-nums text-emerald-600">
-                                                {money(row.paidAmount)}
-                                            </td>
-                                            <td className="px-5 py-4 text-right font-semibold tabular-nums text-rose-500">
-                                                {money(row.dueAmount)}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <StatusBadge status={row.paymentStatus} />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <Panel padding="0">
+                        <DataTable<DuesReportRow & { id: string }>
+                            minWidth="56rem"
+                            empty="Nothing outstanding in this date range."
+                            rows={data.rows.map((row) => ({ ...row, id: row._id }))}
+                            columns={[
+                                {
+                                    key: 'invoiceNumber',
+                                    header: 'Invoice',
+                                    mono: true,
+                                    render: (row) => (
+                                        <Link to={`/billing/${row._id}`} style={{ fontWeight: 600 }}>
+                                            {row.invoiceNumber}
+                                        </Link>
+                                    ),
+                                },
+                                {
+                                    key: 'visitDate',
+                                    header: 'Date',
+                                    render: (row) => <span style={{ color: 'var(--text-muted)' }}>{formatDate(row.visitDate)}</span>,
+                                },
+                                {
+                                    key: 'patient',
+                                    header: 'Patient',
+                                    render: (row) => (
+                                        <div>
+                                            <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientInfo.name}</p>
+                                            <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                                                {row.patientInfo.patientId} · {row.patientInfo.phone}
+                                            </p>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    key: 'referrer',
+                                    header: 'Referrer',
+                                    render: (row) => row.referrerInfo?.name ?? <span style={{ color: 'var(--text-faint)' }}>Walk-in</span>,
+                                },
+                                { key: 'netPayable', header: 'Payable', align: 'right', render: (row) => money(row.netPayable) },
+                                {
+                                    key: 'paidAmount',
+                                    header: 'Paid',
+                                    align: 'right',
+                                    render: (row) => <span style={{ color: 'var(--success-strong)' }}>{money(row.paidAmount)}</span>,
+                                },
+                                {
+                                    key: 'dueAmount',
+                                    header: 'Due',
+                                    align: 'right',
+                                    render: (row) => <span style={{ fontWeight: 600, color: 'var(--danger-strong)' }}>{money(row.dueAmount)}</span>,
+                                },
+                                { key: 'paymentStatus', header: 'Status', render: (row) => <StatusBadge status={row.paymentStatus} /> },
+                            ]}
+                        />
+                    </Panel>
                 </>
             )}
-        </div>
+        </>
     );
 };
 

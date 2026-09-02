@@ -1,16 +1,12 @@
 import { Fragment } from 'react';
-import {
-    ArrowRightOnRectangleIcon,
-    Bars3Icon,
-    ChevronDownIcon,
-    Cog6ToothIcon,
-    UserCircleIcon,
-} from '@heroicons/react/24/outline';
+import type { CSSProperties } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/hooks/store';
 import { useRole } from '@/hooks/useRole';
 import { logout } from '@/features/auth/authSlice';
+import Icon from '@/components/ui/Icon';
+import type { IconName } from '@/components/ui/Icon';
 
 type TopbarProps = {
     onMenuClick: () => void;
@@ -43,6 +39,37 @@ const titleFor = (pathname: string): string => {
     return match ? match[1] : 'Dashboard';
 };
 
+const iconBtn: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '38px',
+    height: '38px',
+    border: '1px solid var(--border-card)',
+    background: 'var(--surface-card)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    transition: 'var(--transition-control)',
+};
+
+const menuItem = (active: boolean, danger = false): CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-3)',
+    width: '100%',
+    padding: '10px var(--space-4)',
+    border: 0,
+    background: active ? 'var(--surface-sunken)' : 'transparent',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-sans)',
+    fontSize: 'var(--text-13)',
+    fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
+    color: danger ? 'var(--danger-strong)' : 'var(--text-body)',
+    textAlign: 'left',
+});
+
+/** Sticky app header: page title and the user chip. */
 const Topbar = ({ onMenuClick }: TopbarProps) => {
     const user = useAppSelector((state) => state.auth.user);
     const dispatch = useAppDispatch();
@@ -55,115 +82,164 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
         navigate('/login');
     };
 
-    const menuItemClass = (active: boolean) =>
-        `${active ? 'bg-brand/5 text-brand' : 'text-slate-700'} group flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium transition-all duration-150`;
+    const entries: [string, IconName, () => void][] = [
+        ['Profile', 'user-round', () => navigate('/profile')],
+        ...(isAdmin ? ([['Settings', 'settings', () => navigate('/settings')]] as [string, IconName, () => void][]) : []),
+    ];
 
     return (
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-slate-200/60 bg-white px-6 py-4 lg:px-10">
-            <div className="flex items-center gap-4">
-                <button
-                    type="button"
-                    onClick={onMenuClick}
-                    aria-label="Open menu"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-slate-600 hover:bg-slate-100 lg:hidden"
-                >
-                    <Bars3Icon className="h-6 w-6" />
+        <header
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 'var(--space-4) var(--space-6)',
+                flexWrap: 'wrap',
+                minHeight: 'var(--topbar-h)',
+                padding: 'var(--space-3) var(--pad-page-x)',
+                background: 'var(--surface-card)',
+                borderBottom: '1px solid var(--border-card)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 40,
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: 1, minWidth: 0 }}>
+                <button type="button" onClick={onMenuClick} aria-label="Open menu" className="lg:hidden" style={iconBtn}>
+                    <Icon name="menu" size={18} />
                 </button>
-                <h1 className="text-xl font-bold text-slate-900 lg:text-2xl">
+                <h1
+                    style={{
+                        font: 'var(--type-page-title)',
+                        color: 'var(--text-heading)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: '0 1 auto',
+                    }}
+                >
                     {titleFor(location.pathname)}
                 </h1>
             </div>
 
-            <div className="flex items-center gap-2 lg:gap-3">
-                <Menu as="div" className="relative">
-                    <Menu.Button className="flex items-center gap-2 rounded-sm py-1.5 pl-2 pr-3 transition-all hover:bg-slate-100">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-sm bg-slate-200 text-sm font-semibold text-slate-600">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+                <Menu as="div" style={{ position: 'relative' }}>
+                    <Menu.Button
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--space-2)',
+                            padding: '4px 10px 4px 4px',
+                            border: '1px solid var(--border-card)',
+                            background: 'var(--surface-card)',
+                            borderRadius: 'var(--radius-pill)',
+                            cursor: 'pointer',
+                            transition: 'var(--transition-control)',
+                        }}
+                    >
+                        <span
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '50%',
+                                background: 'var(--brand-light)',
+                                color: 'var(--brand-dark)',
+                                fontSize: 'var(--text-13)',
+                                fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                            }}
+                        >
                             {user?.name?.[0]?.toUpperCase() ?? 'U'}
                         </span>
-                        <span className="hidden text-sm font-medium text-slate-700 lg:block">
+                        <span
+                            className="hidden lg:block"
+                            style={{
+                                fontSize: 'var(--text-13)',
+                                fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                                color: 'var(--text-body)',
+                            }}
+                        >
                             {user?.name ?? 'User'}
                         </span>
-                        <ChevronDownIcon className="hidden h-4 w-4 text-slate-500 lg:block" />
+                        <Icon name="chevron-down" size={15} color="var(--text-faint)" />
                     </Menu.Button>
 
                     <Transition
                         as={Fragment}
                         enter="transition ease-out duration-200"
-                        enterFrom="transform opacity-0 scale-95 translate-y-[-10px]"
-                        enterTo="transform opacity-100 scale-100 translate-y-0"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
                         leave="transition ease-in duration-150"
-                        leaveFrom="transform opacity-100 scale-100 translate-y-0"
-                        leaveTo="transform opacity-0 scale-95 translate-y-[-10px]"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
                     >
-                        <Menu.Items className="absolute right-0 z-50 mt-3 w-56 origin-top-right overflow-hidden rounded-sm border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 focus:outline-none">
-                            <div className="border-b border-slate-200/60 bg-slate-50/50 px-3 py-3">
-                                <p className="text-sm font-bold text-slate-900">
+                        <Menu.Items
+                            style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 'calc(100% + 8px)',
+                                width: '224px',
+                                background: 'var(--surface-card)',
+                                border: '1px solid var(--border-card)',
+                                borderRadius: 'var(--radius-lg)',
+                                boxShadow: 'var(--shadow-pop)',
+                                overflow: 'hidden',
+                                zIndex: 50,
+                                outline: 'none',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    padding: 'var(--space-3) var(--space-4)',
+                                    background: 'var(--surface-sunken)',
+                                    borderBottom: '1px solid var(--border-card)',
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontSize: 'var(--text-13)',
+                                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                                        color: 'var(--text-heading)',
+                                    }}
+                                >
                                     {user?.name ?? 'User'}
                                 </p>
-                                <p className="mt-0.5 truncate text-xs text-slate-500">
+                                <p
+                                    style={{
+                                        fontSize: 'var(--text-12)',
+                                        color: 'var(--text-muted)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                    }}
+                                >
                                     {user?.email}
                                 </p>
-                                <p className="mt-1 text-xs capitalize text-slate-400">
+                                <p style={{ fontSize: 'var(--text-11)', color: 'var(--text-faint)', textTransform: 'capitalize', marginTop: '2px' }}>
                                     {user?.role}
                                 </p>
                             </div>
 
-                            <div className="py-1.5">
-                                <Menu.Item>
+                            {entries.map(([label, icon, action]) => (
+                                <Menu.Item key={label}>
                                     {({ active }) => (
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate('/profile')}
-                                            className={menuItemClass(active)}
-                                        >
-                                            <span
-                                                className={`flex h-7 w-7 items-center justify-center rounded-sm ${active ? 'bg-brand/10' : 'bg-slate-100'}`}
-                                            >
-                                                <UserCircleIcon className="h-4 w-4" />
-                                            </span>
-                                            Profile
+                                        <button type="button" onClick={action} style={menuItem(active)}>
+                                            <Icon name={icon} size={16} />
+                                            {label}
                                         </button>
                                     )}
                                 </Menu.Item>
+                            ))}
 
-                                {isAdmin && (
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                type="button"
-                                                onClick={() => navigate('/settings')}
-                                                className={menuItemClass(active)}
-                                            >
-                                                <span
-                                                    className={`flex h-7 w-7 items-center justify-center rounded-sm ${active ? 'bg-brand/10' : 'bg-slate-100'}`}
-                                                >
-                                                    <Cog6ToothIcon className="h-4 w-4" />
-                                                </span>
-                                                Settings
-                                            </button>
-                                        )}
-                                    </Menu.Item>
+                            <Menu.Item>
+                                {({ active }) => (
+                                    <button type="button" onClick={handleLogout} style={menuItem(active, true)}>
+                                        <Icon name="log-out" size={16} />
+                                        Sign out
+                                    </button>
                                 )}
-                            </div>
-
-                            <div className="border-t border-slate-200/60 py-1.5">
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button
-                                            type="button"
-                                            onClick={handleLogout}
-                                            className={`${active ? 'bg-danger/5 text-danger' : 'text-slate-700'} group flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium transition-all duration-150`}
-                                        >
-                                            <span
-                                                className={`flex h-7 w-7 items-center justify-center rounded-sm ${active ? 'bg-danger/10' : 'bg-slate-100'}`}
-                                            >
-                                                <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                                            </span>
-                                            Sign out
-                                        </button>
-                                    )}
-                                </Menu.Item>
-                            </div>
+                            </Menu.Item>
                         </Menu.Items>
                     </Transition>
                 </Menu>

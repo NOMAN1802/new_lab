@@ -3,12 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
+import Button from '@/components/ui/Button';
+import Panel from '@/components/ui/Panel';
+import Select from '@/components/ui/Select';
+import TextField from '@/components/ui/TextField';
+import Textarea from '@/components/ui/Textarea';
 import { apiErrorMessage } from '@/lib/format';
-import {
-    useCreatePatientMutation,
-    useGetPatientQuery,
-    useUpdatePatientMutation,
-} from '@/services/patientsApi';
+import { useCreatePatientMutation, useGetPatientQuery, useUpdatePatientMutation } from '@/services/patientsApi';
 import type { Gender, PatientInput } from '@/services/patientsApi';
 
 const EMPTY: PatientInput = {
@@ -20,9 +21,6 @@ const EMPTY: PatientInput = {
 };
 
 const GENDERS: Gender[] = ['male', 'female', 'other'];
-
-const fieldClass =
-    'w-full rounded-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 const PatientFormPage = () => {
     const { id } = useParams();
@@ -87,143 +85,88 @@ const PatientFormPage = () => {
                 navigate(`/billing/new?patient=${created._id}`);
             }
         } catch (error) {
-            toast.error(
-                apiErrorMessage(
-                    error,
-                    isEdit ? 'Could not update patient' : 'Could not register patient'
-                )
-            );
+            toast.error(apiErrorMessage(error, isEdit ? 'Could not update patient' : 'Could not register patient'));
         }
     };
 
     if (isEdit && isLoading) return <Loader message="Loading patient..." />;
     if (isEdit && isError) {
-        return (
-            <ErrorState
-                title="Could not load patient"
-                description="This patient record is unavailable."
-                onRetry={refetch}
-            />
-        );
+        return <ErrorState title="Could not load patient" description="This patient record is unavailable." onRetry={refetch} />;
     }
 
     const isSaving = isCreating || isUpdating;
 
     return (
-        <div className="mx-auto max-w-2xl space-y-6">
-            <header>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                    {isEdit ? 'Edit patient' : 'Register patient'}
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
+        <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
+            <div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{isEdit ? 'Edit patient' : 'Register patient'}</h2>
+                <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
                     {isEdit
                         ? `Patient ID ${patient?.patientId} cannot be changed.`
                         : 'A patient ID is assigned automatically. You can book tests straight after saving.'}
                 </p>
-            </header>
+            </div>
 
-            <form
-                onSubmit={handleSubmit}
-                className="space-y-5 rounded-sm border border-white/60 bg-white/80 p-6 shadow-card shadow-slate-200/40 backdrop-blur"
-            >
-                <div>
-                    <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-slate-700">
-                        Full name
-                    </label>
-                    <input
+            <Panel>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <TextField
+                        label="Full name"
                         id="name"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        className={fieldClass}
                         placeholder="e.g. Ayesha Rahman"
+                        error={errors.name}
                     />
-                    {errors.name && <p className="mt-1 text-xs text-rose-500">{errors.name}</p>}
-                </div>
 
-                <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
-                        <label htmlFor="age" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Age
-                        </label>
-                        <input
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                        <TextField
+                            label="Age"
                             id="age"
                             type="number"
                             min={0}
                             max={130}
                             value={form.age || ''}
-                            onChange={(e) =>
-                                setForm({ ...form, age: Number(e.target.value) })
-                            }
-                            className={fieldClass}
+                            onChange={(e) => setForm({ ...form, age: Number(e.target.value) })}
+                            hint="0–130"
+                            error={errors.age}
                         />
-                        {errors.age && <p className="mt-1 text-xs text-rose-500">{errors.age}</p>}
-                    </div>
-
-                    <div>
-                        <label htmlFor="gender" className="mb-1.5 block text-sm font-medium text-slate-700">
-                            Sex
-                        </label>
-                        <select
+                        <Select
+                            label="Sex"
                             id="gender"
                             value={form.gender}
-                            onChange={(e) =>
-                                setForm({ ...form, gender: e.target.value as Gender })
-                            }
-                            className={`${fieldClass} capitalize`}
-                        >
-                            {GENDERS.map((gender) => (
-                                <option key={gender} value={gender} className="capitalize">
-                                    {gender}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(e) => setForm({ ...form, gender: e.target.value as Gender })}
+                            options={GENDERS}
+                        />
                     </div>
-                </div>
 
-                <div>
-                    <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-slate-700">
-                        Phone
-                    </label>
-                    <input
+                    <TextField
+                        label="Phone"
                         id="phone"
                         value={form.phone}
                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        className={fieldClass}
                         placeholder="01XXXXXXXXX"
+                        error={errors.phone}
                     />
-                    {errors.phone && <p className="mt-1 text-xs text-rose-500">{errors.phone}</p>}
-                </div>
 
-                <div>
-                    <label htmlFor="address" className="mb-1.5 block text-sm font-medium text-slate-700">
-                        Address <span className="text-slate-400">(optional)</span>
-                    </label>
-                    <textarea
+                    <Textarea
+                        label="Address"
                         id="address"
+                        optional
                         rows={3}
                         value={form.address}
                         onChange={(e) => setForm({ ...form, address: e.target.value })}
-                        className={fieldClass}
                     />
-                </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                    <button
-                        type="button"
-                        onClick={() => navigate(-1)}
-                        className="rounded-sm border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="rounded-sm bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-60"
-                    >
-                        {isSaving ? 'Saving...' : isEdit ? 'Save changes' : 'Register patient'}
-                    </button>
-                </div>
-            </form>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
+                        <Button variant="secondary" onClick={() => navigate(-1)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" loading={isSaving}>
+                            {isSaving ? 'Saving...' : isEdit ? 'Save changes' : 'Register patient'}
+                        </Button>
+                    </div>
+                </form>
+            </Panel>
         </div>
     );
 };

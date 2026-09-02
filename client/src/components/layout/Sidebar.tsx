@@ -1,46 +1,35 @@
 import { Fragment, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { NavLink, useLocation } from 'react-router-dom';
-import {
-    ArrowLeftOnRectangleIcon,
-    BanknotesIcon,
-    BeakerIcon,
-    ChartBarIcon,
-    ChevronDownIcon,
-    ChevronLeftIcon,
-    ChevronRightIcon,
-    ClockIcon,
-    Cog6ToothIcon,
-    CreditCardIcon,
-    DocumentChartBarIcon,
-    HomeIcon,
-    ShieldCheckIcon,
-    UserGroupIcon,
-    UsersIcon,
-    XMarkIcon,
-} from '@heroicons/react/24/outline';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/hooks/store';
 import { useRole } from '@/hooks/useRole';
 import { logout } from '@/features/auth/authSlice';
 import { CENTRE } from '@/lib/centre';
 import type { UserRole } from '@/lib/token';
+import Icon from '@/components/ui/Icon';
+import type { IconName } from '@/components/ui/Icon';
+import Button from '@/components/ui/Button';
+import LogoMark from '@/components/ui/LogoMark';
+
+type NavChild = { name: string; to: string; roles?: UserRole[] };
 
 type NavItem = {
     name: string;
     to: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: IconName;
     /** Omit to show for every role. */
     roles?: UserRole[];
-    children?: { name: string; to: string; roles?: UserRole[] }[];
+    children?: NavChild[];
 };
 
 const NAVIGATION: NavItem[] = [
-    { name: 'Dashboard', to: '/', icon: HomeIcon },
-    { name: 'Patients', to: '/patients', icon: UserGroupIcon },
+    { name: 'Dashboard', to: '/', icon: 'layout-dashboard' },
+    { name: 'Patients', to: '/patients', icon: 'users' },
     {
         name: 'Billing',
         to: '/billing',
-        icon: CreditCardIcon,
+        icon: 'credit-card',
         children: [
             { name: 'New booking', to: '/billing/new' },
             { name: 'All invoices', to: '/billing' },
@@ -49,18 +38,18 @@ const NAVIGATION: NavItem[] = [
     {
         name: 'Catalogue',
         to: '/tests',
-        icon: BeakerIcon,
+        icon: 'flask-conical',
         children: [
             { name: 'Tests', to: '/tests' },
             { name: 'Departments', to: '/departments', roles: ['admin'] },
         ],
     },
-    { name: 'Referrers', to: '/referrers', icon: UsersIcon, roles: ['admin'] },
-    { name: 'Commission', to: '/commission', icon: BanknotesIcon, roles: ['admin'] },
+    { name: 'Referrers', to: '/referrers', icon: 'user-round-search', roles: ['admin'] },
+    { name: 'Commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
     {
         name: 'Reports',
         to: '/reports/patients',
-        icon: ChartBarIcon,
+        icon: 'chart-column',
         children: [
             { name: 'Patient report', to: '/reports/patients' },
             { name: 'Financial summary', to: '/reports/financial', roles: ['admin'] },
@@ -68,129 +57,219 @@ const NAVIGATION: NavItem[] = [
             { name: 'Outstanding payments', to: '/reports/dues', roles: ['admin'] },
         ],
     },
-    { name: 'Users', to: '/users', icon: ShieldCheckIcon, roles: ['admin'] },
-    { name: 'Activity', to: '/activity', icon: ClockIcon, roles: ['admin'] },
-    { name: 'Settings', to: '/settings', icon: Cog6ToothIcon, roles: ['admin'] },
+    { name: 'Users', to: '/users', icon: 'shield-check', roles: ['admin'] },
+    { name: 'Activity', to: '/activity', icon: 'clock', roles: ['admin'] },
+    { name: 'Settings', to: '/settings', icon: 'settings', roles: ['admin'] },
 ];
 
-const visibleTo = (role: UserRole | undefined, roles?: UserRole[]) =>
-    !roles || (role !== undefined && roles.includes(role));
+const visibleTo = (role: UserRole | undefined, roles?: UserRole[]) => !roles || (role !== undefined && roles.includes(role));
 
-const linkClass = (active: boolean) =>
-    `group relative flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
-        active
-            ? 'bg-linear-to-r from-brand to-brand-dark text-white shadow-lg shadow-brand/30'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-    }`;
-
-type SidebarContentProps = {
+type ItemProps = {
+    name: string;
+    icon?: IconName;
+    active: boolean;
     collapsed?: boolean;
-    onNavigate?: () => void;
+    indent?: boolean;
+    hasChildren?: boolean;
+    onClick: () => void;
 };
 
-const SidebarContent = ({ collapsed = false, onNavigate }: SidebarContentProps) => {
-    const location = useLocation();
-    const { role } = useRole();
-    const [openGroup, setOpenGroup] = useState<string | null>(null);
-
-    const items = NAVIGATION.filter((item) => visibleTo(role, item.roles));
+const Item = ({ name, icon, active, collapsed = false, indent = false, hasChildren = false, onClick }: ItemProps) => {
+    const [hover, setHover] = useState(false);
 
     return (
-        <nav className="mt-4 space-y-1">
-            {items.map((item) => {
-                const children = item.children?.filter((child) =>
-                    visibleTo(role, child.roles)
-                );
-                const hasChildren = Boolean(children?.length) && !collapsed;
-                const isChildActive = children?.some(
-                    (child) => child.to === location.pathname
-                );
-                const isActive = location.pathname === item.to || isChildActive;
-
-                if (hasChildren) {
-                    const isOpen = openGroup === item.name || isChildActive;
-
-                    return (
-                        <div key={item.name}>
-                            <button
-                                type="button"
-                                onClick={() => setOpenGroup(isOpen ? null : item.name)}
-                                className={linkClass(Boolean(isActive))}
-                                aria-expanded={isOpen}
-                            >
-                                <item.icon className="h-5 w-5 shrink-0" />
-                                <span className="flex-1 text-left">{item.name}</span>
-                                <ChevronDownIcon
-                                    className={`h-4 w-4 transition-transform ${
-                                        isOpen ? 'rotate-180' : ''
-                                    }`}
-                                />
-                            </button>
-
-                            {isOpen && (
-                                <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-200 pl-3">
-                                    {children!.map((child) => (
-                                        <NavLink
-                                            key={child.to}
-                                            to={child.to}
-                                            end
-                                            onClick={onNavigate}
-                                            className={({ isActive: active }) =>
-                                                `block rounded-sm px-3 py-2 text-sm transition ${
-                                                    active
-                                                        ? 'bg-brand/10 font-semibold text-brand'
-                                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                                }`
-                                            }
-                                        >
-                                            {child.name}
-                                        </NavLink>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                }
-
-                return (
-                    <NavLink
-                        key={item.name}
-                        to={item.to}
-                        end={item.to === '/'}
-                        onClick={onNavigate}
-                        className={({ isActive: active }) => linkClass(active)}
-                        title={collapsed ? item.name : undefined}
-                    >
-                        <item.icon className="h-5 w-5 shrink-0" />
-                        {!collapsed && <span className="flex-1">{item.name}</span>}
-                    </NavLink>
-                );
-            })}
-        </nav>
+        <button
+            type="button"
+            onClick={onClick}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            title={collapsed ? name : undefined}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                width: '100%',
+                padding: indent ? '8px 12px 8px 14px' : '9px 12px',
+                border: 0,
+                borderRadius: 'var(--radius-md)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-13)',
+                fontWeight: (active ? 'var(--fw-semibold)' : 'var(--fw-medium)') as CSSProperties['fontWeight'],
+                background: active ? 'var(--brand-light)' : hover ? 'var(--surface-muted)' : 'transparent',
+                color: active ? 'var(--brand-dark)' : hover ? 'var(--text-heading)' : 'var(--text-muted)',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                transition: 'var(--transition-control)',
+                position: 'relative',
+            }}
+        >
+            {active && !indent && (
+                <span
+                    style={{
+                        position: 'absolute',
+                        left: '-12px',
+                        top: '9px',
+                        bottom: '9px',
+                        width: '3px',
+                        borderRadius: 'var(--radius-pill)',
+                        background: 'var(--brand)',
+                    }}
+                />
+            )}
+            {icon && <Icon name={icon} size={18} strokeWidth={active ? 2 : 1.75} />}
+            {!collapsed && <span style={{ flex: 1 }}>{name}</span>}
+            {!collapsed && hasChildren && <Icon name="chevron-down" size={15} />}
+        </button>
     );
 };
 
 const Brand = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div
-        className={`flex items-center gap-3 border-b border-slate-200/60 px-6 py-6 ${
-            collapsed ? 'justify-center px-4' : ''
-        }`}
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            padding: collapsed ? '20px 0' : '20px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+        }}
     >
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-linear-to-br from-brand to-brand-dark text-white shadow-lg shadow-brand/30">
-            <DocumentChartBarIcon className="h-6 w-6" />
-        </span>
+        <LogoMark size={34} style={{ borderRadius: 'var(--radius-md)' }} />
         {!collapsed && (
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold leading-tight text-slate-900">
+            <div style={{ minWidth: 0 }}>
+                <p
+                    style={{
+                        fontSize: 'var(--text-14)',
+                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
+                        color: 'var(--text-heading)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}
+                >
                     {CENTRE.name}
                 </p>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                <p
+                    style={{
+                        fontSize: 'var(--text-11)',
+                        fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
+                        letterSpacing: 'var(--tracking-caps)',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-faint)',
+                    }}
+                >
                     Billing &amp; Management
                 </p>
             </div>
         )}
     </div>
 );
+
+const HelpCard = () => (
+    <div
+        style={{
+            background: 'var(--brand)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 16,
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+        }}
+    >
+        <span
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 30,
+                height: 30,
+                borderRadius: 9,
+                background: 'rgba(255,255,255,.18)',
+            }}
+        >
+            <Icon name="life-buoy" size={16} />
+        </span>
+        <p style={{ fontSize: 13, fontWeight: 700 }}>Need a hand?</p>
+        <p style={{ fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.8)' }}>
+            Billing rules, discounts and Dhaka-day reports explained in the handbook.
+        </p>
+    </div>
+);
+
+type NavListProps = {
+    collapsed?: boolean;
+    onNavigate?: () => void;
+};
+
+const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { role } = useRole();
+    const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+    const items = NAVIGATION.filter((item) => visibleTo(role, item.roles));
+
+    const go = (to: string) => {
+        navigate(to);
+        onNavigate?.();
+    };
+
+    return (
+        <nav
+            style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '4px 12px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+            }}
+        >
+            {items.map((item) => {
+                const children = item.children?.filter((child) => visibleTo(role, child.roles));
+                const childActive = Boolean(children?.some((child) => child.to === location.pathname));
+                const isOpen = !collapsed && Boolean(children?.length) && (openGroup === item.name || childActive);
+                const active = item.to === location.pathname || (childActive && !isOpen);
+
+                return (
+                    <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <Item
+                            name={item.name}
+                            icon={item.icon}
+                            active={active}
+                            collapsed={collapsed}
+                            hasChildren={Boolean(children?.length)}
+                            onClick={() => (children?.length && !collapsed ? setOpenGroup(isOpen ? null : item.name) : go(item.to))}
+                        />
+                        {isOpen && children && (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px',
+                                    margin: '2px 0 4px 15px',
+                                    paddingLeft: '12px',
+                                    borderLeft: '1px solid var(--border-subtle)',
+                                }}
+                            >
+                                {children.map((child) => (
+                                    <Item
+                                        key={child.to}
+                                        name={child.name}
+                                        active={child.to === location.pathname}
+                                        indent
+                                        onClick={() => go(child.to)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </nav>
+    );
+};
 
 type SidebarProps = {
     open: boolean;
@@ -203,45 +282,52 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
 
     const signOut = () => dispatch(logout());
 
+    const surface: CSSProperties = {
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--surface-card)',
+        borderRight: '1px solid var(--border-card)',
+    };
+
     return (
         <>
             {/* Desktop */}
-            <div
-                className={`hidden lg:flex lg:flex-col lg:border-r lg:border-slate-200/60 lg:bg-white/80 lg:shadow-2xl lg:shadow-slate-900/5 lg:backdrop-blur-xl lg:transition-all lg:duration-300 ${
-                    collapsed ? 'lg:w-20' : 'lg:w-72'
-                }`}
+            <aside
+                className="hidden lg:flex"
+                style={{
+                    ...surface,
+                    width: collapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
+                    flex: '0 0 auto',
+                    height: '100vh',
+                    position: 'sticky',
+                    top: 0,
+                    transition: 'width var(--dur-slow) var(--ease-standard)',
+                }}
             >
                 <Brand collapsed={collapsed} />
+                <NavList collapsed={collapsed} />
 
-                <div className="flex-1 overflow-y-auto px-4 py-2">
-                    <SidebarContent collapsed={collapsed} />
-                </div>
-
-                <div className="space-y-1 border-t border-slate-200/60 px-4 py-4">
-                    <button
-                        type="button"
+                <div style={{ padding: collapsed ? '12px 8px' : 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {!collapsed && <HelpCard />}
+                    <Button
+                        variant="ghost"
+                        icon="log-out"
+                        block
                         onClick={signOut}
-                        className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
-                        title={collapsed ? 'Sign out' : undefined}
+                        style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
                     >
-                        <ArrowLeftOnRectangleIcon className="h-5 w-5 shrink-0" />
-                        {!collapsed && <span>Sign out</span>}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setCollapsed((value) => !value)}
+                        {!collapsed && 'Sign out'}
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={collapsed ? 'chevron-right' : 'chevron-left'}
+                        block
                         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        className="flex w-full items-center justify-center rounded-sm border border-slate-200 px-3 py-2 text-slate-500 transition hover:bg-slate-50"
-                    >
-                        {collapsed ? (
-                            <ChevronRightIcon className="h-4 w-4" />
-                        ) : (
-                            <ChevronLeftIcon className="h-4 w-4" />
-                        )}
-                    </button>
+                        onClick={() => setCollapsed((value) => !value)}
+                    />
                 </div>
-            </div>
+            </aside>
 
             {/* Mobile */}
             <Transition show={open} as={Fragment}>
@@ -255,7 +341,7 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                         leaveFrom="opacity-100"
                         leaveTo="opacity-0"
                     >
-                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" />
+                        <div className="fixed inset-0" style={{ background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(3px)' }} />
                     </Transition.Child>
 
                     <Transition.Child
@@ -267,34 +353,37 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                         leaveFrom="translate-x-0"
                         leaveTo="-translate-x-full"
                     >
-                        <Dialog.Panel className="fixed inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl">
-                            <div className="flex items-center justify-between border-b border-slate-200/60 pr-3">
-                                <div className="flex-1">
-                                    <Brand />
-                                </div>
+                        <Dialog.Panel
+                            className="fixed inset-y-0 left-0"
+                            style={{ ...surface, width: 'var(--sidebar-w)', boxShadow: 'var(--shadow-pop)' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12 }}>
+                                <Brand />
                                 <button
                                     type="button"
                                     onClick={onClose}
                                     aria-label="Close menu"
-                                    className="rounded-sm p-2 text-slate-500 transition hover:bg-slate-100"
+                                    style={{
+                                        display: 'flex',
+                                        border: 0,
+                                        background: 'transparent',
+                                        padding: 8,
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: 'var(--text-faint)',
+                                        cursor: 'pointer',
+                                    }}
                                 >
-                                    <XMarkIcon className="h-5 w-5" />
+                                    <Icon name="x" size={20} />
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto px-4 py-2">
-                                <SidebarContent onNavigate={onClose} />
-                            </div>
+                            <NavList onNavigate={onClose} />
 
-                            <div className="border-t border-slate-200/60 px-4 py-4">
-                                <button
-                                    type="button"
-                                    onClick={signOut}
-                                    className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
-                                >
-                                    <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+                            <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <HelpCard />
+                                <Button variant="ghost" icon="log-out" block onClick={signOut} style={{ justifyContent: 'flex-start' }}>
                                     Sign out
-                                </button>
+                                </Button>
                             </div>
                         </Dialog.Panel>
                     </Transition.Child>

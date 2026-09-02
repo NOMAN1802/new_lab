@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Link, useNavigate } from 'react-router-dom';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import StatusBadge from '@/components/common/StatusBadge';
+import Button from '@/components/ui/Button';
+import Panel from '@/components/ui/Panel';
+import DataTable from '@/components/ui/DataTable';
+import Pagination from '@/components/ui/Pagination';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import TextField from '@/components/ui/TextField';
 import { formatDate, money, toDhakaDateInput } from '@/lib/format';
 import { useGetInvoicesQuery } from '@/services/invoicesApi';
-import type { PaymentStatus } from '@/services/invoicesApi';
+import type { Invoice, PaymentStatus } from '@/services/invoicesApi';
 
 const PAGE_SIZE = 20;
 
@@ -22,6 +27,7 @@ const InvoicesPage = () => {
     const [status, setStatus] = useState<PaymentStatus | ''>('');
     const [date, setDate] = useState('');
     const [page, setPage] = useState(1);
+    const navigate = useNavigate();
 
     const { data, isLoading, isFetching, isError, refetch } = useGetInvoicesQuery({
         page,
@@ -41,180 +47,120 @@ const InvoicesPage = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-wrap items-center justify-between gap-4">
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Invoices</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        {total} {total === 1 ? 'invoice' : 'invoices'}
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Invoices</h2>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
+                        {total} {total === 1 ? 'invoice' : 'invoices'} · {invoices.length} shown
                     </p>
                 </div>
-                <Link
-                    to="/billing/new"
-                    className="inline-flex items-center gap-2 rounded-sm bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-                >
-                    <PlusIcon className="h-5 w-5" />
+                <Button icon="plus" onClick={() => navigate('/billing/new')}>
                     New booking
-                </Link>
-            </header>
+                </Button>
+            </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-                <div className="relative min-w-[16rem] flex-1">
-                    <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 260, maxWidth: 420 }}>
+                    <TextField
+                        icon="search"
                         type="search"
                         value={search}
                         onChange={(e) => resetTo(() => setSearch(e.target.value))}
                         placeholder="Search by invoice number, patient name or phone"
-                        className="w-full rounded-sm border border-slate-200 bg-white py-2.5 pl-12 pr-4 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                     />
                 </div>
 
-                <input
+                <TextField
                     type="date"
                     value={date}
                     max={toDhakaDateInput()}
                     onChange={(e) => resetTo(() => setDate(e.target.value))}
-                    className="rounded-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    style={{ width: 180 }}
                 />
                 {date && (
-                    <button
-                        type="button"
-                        onClick={() => resetTo(() => setDate(''))}
-                        className="text-sm font-semibold text-slate-500 transition hover:text-slate-700"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => resetTo(() => setDate(''))}>
                         Clear date
-                    </button>
+                    </Button>
                 )}
 
-                <div className="flex gap-1 rounded-sm bg-slate-100 p-1">
-                    {STATUS_FILTERS.map((filter) => (
-                        <button
-                            key={filter.label}
-                            type="button"
-                            onClick={() => resetTo(() => setStatus(filter.value))}
-                            className={`rounded-sm px-4 py-1.5 text-xs font-semibold transition ${
-                                status === filter.value
-                                    ? 'bg-white text-brand shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                        >
-                            {filter.label}
-                        </button>
-                    ))}
-                </div>
+                <SegmentedControl
+                    options={STATUS_FILTERS.map((filter) => ({ label: filter.label, value: filter.value }))}
+                    value={status}
+                    onChange={(value) => resetTo(() => setStatus(value as PaymentStatus | ''))}
+                />
             </div>
 
             {isLoading ? (
                 <Loader message="Loading invoices..." />
             ) : isError ? (
                 <ErrorState title="Could not load invoices" onRetry={refetch} />
-            ) : invoices.length === 0 ? (
-                <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                    <p className="text-sm font-medium text-slate-500">
-                        No invoices match these filters.
-                    </p>
-                </div>
             ) : (
-                <div className="overflow-x-auto rounded-sm border border-white/60 bg-white/80 shadow-card shadow-slate-200/40 backdrop-blur">
-                    <table className="w-full min-w-[52rem] text-left text-sm">
-                        <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th className="px-5 py-4 font-semibold">Invoice</th>
-                                <th className="px-5 py-4 font-semibold">Date</th>
-                                <th className="px-5 py-4 font-semibold">Patient</th>
-                                <th className="px-5 py-4 font-semibold">Referrer</th>
-                                <th className="px-5 py-4 text-right font-semibold">Payable</th>
-                                <th className="px-5 py-4 text-right font-semibold">Paid</th>
-                                <th className="px-5 py-4 text-right font-semibold">Due</th>
-                                <th className="px-5 py-4 font-semibold">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {invoices.map((invoice) => (
-                                <tr
-                                    key={invoice._id}
-                                    className={`transition hover:bg-slate-50/70 ${
-                                        invoice.isCancelled ? 'opacity-50' : ''
-                                    }`}
-                                >
-                                    <td className="px-5 py-4">
-                                        <Link
-                                            to={`/billing/${invoice._id}`}
-                                            className="font-mono text-xs font-semibold text-brand transition hover:text-brand-dark"
-                                        >
-                                            {invoice.invoiceNumber}
+                <>
+                    <Panel padding="0">
+                        <DataTable<Invoice & { id: string }>
+                            minWidth="56rem"
+                            empty="No invoices match these filters."
+                            rows={invoices.map((invoice) => ({ ...invoice, id: invoice._id }))}
+                            columns={[
+                                {
+                                    key: 'invoiceNumber',
+                                    header: 'Invoice',
+                                    mono: true,
+                                    render: (row) => (
+                                        <Link to={`/billing/${row._id}`} style={{ fontWeight: 600, opacity: row.isCancelled ? 0.5 : 1 }}>
+                                            {row.invoiceNumber}
                                         </Link>
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-500">
-                                        {formatDate(invoice.visitDate)}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <p className="font-medium text-slate-900">
-                                            {invoice.patientInfo.name}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                            {invoice.patientInfo.patientId} · {invoice.patientInfo.phone}
-                                        </p>
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-600">
-                                        {invoice.referrerInfo?.name ?? (
-                                            <span className="text-slate-400">Walk-in</span>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-4 text-right tabular-nums text-slate-900">
-                                        {money(invoice.netPayable)}
-                                    </td>
-                                    <td className="px-5 py-4 text-right tabular-nums text-emerald-600">
-                                        {money(invoice.paidAmount)}
-                                    </td>
-                                    <td
-                                        className={`px-5 py-4 text-right font-semibold tabular-nums ${
-                                            invoice.dueAmount > 0 ? 'text-rose-500' : 'text-slate-400'
-                                        }`}
-                                    >
-                                        {money(invoice.dueAmount)}
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        {invoice.isCancelled ? (
-                                            <StatusBadge status="cancelled" />
-                                        ) : (
-                                            <StatusBadge status={invoice.paymentStatus} />
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                    ),
+                                },
+                                { key: 'visitDate', header: 'Date', render: (row) => formatDate(row.visitDate) },
+                                {
+                                    key: 'patient',
+                                    header: 'Patient',
+                                    render: (row) => (
+                                        <div>
+                                            <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientInfo.name}</p>
+                                            <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                                                {row.patientInfo.patientId} · {row.patientInfo.phone}
+                                            </p>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    key: 'referrer',
+                                    header: 'Referrer',
+                                    render: (row) => row.referrerInfo?.name ?? <span style={{ color: 'var(--text-faint)' }}>Walk-in</span>,
+                                },
+                                { key: 'netPayable', header: 'Payable', align: 'right', render: (row) => money(row.netPayable) },
+                                {
+                                    key: 'paidAmount',
+                                    header: 'Paid',
+                                    align: 'right',
+                                    render: (row) => <span style={{ color: 'var(--success-strong)' }}>{money(row.paidAmount)}</span>,
+                                },
+                                {
+                                    key: 'dueAmount',
+                                    header: 'Due',
+                                    align: 'right',
+                                    render: (row) => (
+                                        <span style={{ fontWeight: 600, color: row.dueAmount > 0 ? 'var(--danger-strong)' : 'var(--text-faint)' }}>
+                                            {money(row.dueAmount)}
+                                        </span>
+                                    ),
+                                },
+                                {
+                                    key: 'paymentStatus',
+                                    header: 'Status',
+                                    render: (row) => <StatusBadge status={row.isCancelled ? 'cancelled' : row.paymentStatus} />,
+                                },
+                            ]}
+                        />
+                    </Panel>
 
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">
-                        Page {page} of {totalPages}
-                    </span>
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            disabled={page === 1 || isFetching}
-                            onClick={() => setPage((current) => current - 1)}
-                            className="rounded-sm border border-slate-200 px-4 py-2 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            type="button"
-                            disabled={page === totalPages || isFetching}
-                            onClick={() => setPage((current) => current + 1)}
-                            className="rounded-sm border border-slate-200 px-4 py-2 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+                    <Pagination page={page} totalPages={totalPages} busy={isFetching} onChange={setPage} />
+                </>
             )}
-        </div>
+        </>
     );
 };
 

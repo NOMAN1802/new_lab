@@ -1,27 +1,66 @@
+import type { CSSProperties } from 'react';
+
 type LoaderProps = {
     message?: string;
     fullScreen?: boolean;
+    style?: CSSProperties;
 };
 
-const Loader = ({ message = 'Loading...', fullScreen = false }: LoaderProps) => {
+/** Indigo ring spinner. fullScreen is the app-boot state. */
+const Loader = ({ message = 'Loading...', fullScreen = false, style }: LoaderProps) => {
+    const ring = (size: string, border: string): CSSProperties => ({
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: `${border} solid var(--brand-light)`,
+        borderTopColor: 'var(--brand)',
+        animation: 'nl-spin 800ms linear infinite',
+    });
+
     if (fullScreen) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-50">
-                <div className="flex flex-col items-center gap-4">
-                    <span className="inline-flex h-12 w-12 animate-spin rounded-full border-4 border-brand/20 border-t-brand" />
-                    <p className="text-sm font-medium text-slate-500">{message}</p>
+            <div
+                style={{
+                    minHeight: '60vh',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--surface-page)',
+                    ...style,
+                }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)' }}>
+                    <span style={ring('48px', '4px')} />
+                    <p
+                        style={{
+                            fontSize: 'var(--text-13)',
+                            fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
+                            color: 'var(--text-muted)',
+                        }}
+                    >
+                        {message}
+                    </p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
-            <span className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
+        <div
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                fontSize: 'var(--text-13)',
+                fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
+                color: 'var(--text-muted)',
+                ...style,
+            }}
+        >
+            <span style={ring('18px', '2px')} />
             {message}
         </div>
     );
 };
 
 export default Loader;
-

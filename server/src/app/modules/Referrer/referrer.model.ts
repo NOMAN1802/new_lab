@@ -15,18 +15,24 @@ const ReferrerSchema = new Schema<TReferrer>(
     hospital: { type: String, trim: true },
     phone: { type: String, required: true, trim: true },
     address: { type: String, trim: true },
-    defaultWaiverPercent: {
+    defaultDiscountPercent: {
       type: Number,
       required: true,
       min: 0,
       max: 100,
       default: 0,
     },
-    defaultCommissionPercent: {
+    defaultCommissionType: {
+      type: String,
+      enum: ['percent', 'fixed'],
+      required: true,
+      default: 'percent',
+    },
+    // Percentage or taka depending on the type above, so no max here.
+    defaultCommissionValue: {
       type: Number,
       required: true,
       min: 0,
-      max: 100,
       default: 0,
     },
     isActive: { type: Boolean, default: true },

@@ -1,25 +1,46 @@
-import { ArrowTrendingDownIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/solid';
+import type { CSSProperties } from 'react';
+import Icon from '@/components/ui/Icon';
 
 type TrendPillProps = {
     value: number;
     isPositive?: boolean;
     label?: string;
+    style?: CSSProperties;
 };
 
-const TrendPill = ({ value, isPositive = true, label }: TrendPillProps) => (
+/** Percentage delta against the previous period. Green up, rose down. */
+const TrendPill = ({ value, isPositive = true, label, style }: TrendPillProps) => (
     <span
-        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${isPositive ? 'bg-green-100 text-success' : 'bg-rose-100 text-danger'
-            }`}
+        style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: 'var(--radius-pill)',
+            background: isPositive ? 'var(--success-bg)' : 'var(--danger-bg)',
+            color: isPositive ? 'var(--success-strong)' : 'var(--danger-strong)',
+            fontSize: 'var(--text-12)',
+            fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+            fontFamily: 'var(--font-sans)',
+            fontVariantNumeric: 'tabular-nums',
+            ...style,
+        }}
     >
-        {isPositive ? (
-            <ArrowTrendingUpIcon className="mr-1 h-4 w-4" />
-        ) : (
-            <ArrowTrendingDownIcon className="mr-1 h-4 w-4" />
-        )}
+        <Icon name={isPositive ? 'trending-up' : 'trending-down'} size={13} strokeWidth={2.25} />
         {value}%
-        {label && <span className="ml-1 text-[11px] font-medium text-slate-500">{label}</span>}
+        {label && (
+            <span
+                style={{
+                    marginLeft: '2px',
+                    color: 'var(--text-muted)',
+                    fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
+                    fontSize: 'var(--text-11)',
+                }}
+            >
+                {label}
+            </span>
+        )}
     </span>
 );
 
 export default TrendPill;
-

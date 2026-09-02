@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
+import Button from '@/components/ui/Button';
+import DataTable from '@/components/ui/DataTable';
+import Icon from '@/components/ui/Icon';
+import Panel from '@/components/ui/Panel';
+import TextField from '@/components/ui/TextField';
 import { apiErrorMessage } from '@/lib/format';
 import {
     useCreateTestCategoryMutation,
@@ -12,13 +16,21 @@ import {
 } from '@/services/testCategoriesApi';
 import type { TestCategory } from '@/services/testCategoriesApi';
 
-const fieldClass =
-    'w-full rounded-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+const rowAction: React.CSSProperties = {
+    border: 0,
+    background: 'transparent',
+    padding: 0,
+    cursor: 'pointer',
+    fontFamily: 'var(--font-sans)',
+    fontSize: 12,
+    fontWeight: 600,
+};
 
 const TestCategoriesPage = () => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [editing, setEditing] = useState<TestCategory | null>(null);
+    const [isFormOpen, setFormOpen] = useState(false);
 
     const { data, isLoading, isError, refetch } = useGetTestCategoriesQuery();
     const [createCategory, { isLoading: isCreating }] = useCreateTestCategoryMutation();
@@ -29,6 +41,22 @@ const TestCategoriesPage = () => {
         setName('');
         setDescription('');
         setEditing(null);
+        setFormOpen(false);
+    };
+
+    const startCreate = () => {
+        // Clearing `editing` matters: otherwise the form would submit an update.
+        setEditing(null);
+        setName('');
+        setDescription('');
+        setFormOpen(true);
+    };
+
+    const startEdit = (category: TestCategory) => {
+        setEditing(category);
+        setName(category.name);
+        setDescription(category.description ?? '');
+        setFormOpen(true);
     };
 
     const handleSubmit = async (event: React.FormEvent) => {
@@ -68,107 +96,100 @@ const TestCategoriesPage = () => {
         }
     };
 
-    const startEdit = (category: TestCategory) => {
-        setEditing(category);
-        setName(category.name);
-        setDescription(category.description ?? '');
-    };
-
     const categories = data?.items ?? [];
+    const isSaving = isCreating || isUpdating;
 
     return (
-        <div className="space-y-6">
-            <header>
-                <h1 className="text-2xl font-semibold text-slate-900">Departments</h1>
-                <p className="mt-1 text-sm text-slate-500">
-                    Group tests into Pathology, Radiology, Consultation and so on.
-                </p>
-            </header>
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div>
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Departments</h2>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
+                        Every test belongs to one department. Reports group revenue by these.
+                    </p>
+                </div>
+                <Button icon="plus" onClick={startCreate}>
+                    Add department
+                </Button>
+            </div>
 
-            <form
-                onSubmit={handleSubmit}
-                className="grid gap-4 rounded-sm border border-white/60 bg-white/80 p-6 shadow-card shadow-slate-200/40 backdrop-blur sm:grid-cols-[1fr_1.5fr_auto] sm:items-end"
-            >
-                <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Name</label>
-                    <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className={fieldClass}
-                        placeholder="Pathology"
-                    />
-                </div>
-                <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                        Description <span className="text-slate-400">(optional)</span>
-                    </label>
-                    <input
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className={fieldClass}
-                    />
-                </div>
-                <div className="flex gap-2">
-                    {editing && (
-                        <button
-                            type="button"
-                            onClick={reset}
-                            className="rounded-sm border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Cancel
-                        </button>
-                    )}
-                    <button
-                        type="submit"
-                        disabled={isCreating || isUpdating}
-                        className="inline-flex items-center gap-2 rounded-sm bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-60"
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                        {editing ? 'Save' : 'Add'}
-                    </button>
-                </div>
-            </form>
+            {isFormOpen && (
+                <Panel title={editing ? `Edit ${editing.name}` : 'New department'} style={{ borderColor: 'var(--indigo-200)' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
+                            <TextField label="Department name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pathology" />
+                            <TextField
+                                label="Description"
+                                optional
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="What this department covers"
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <Button variant="secondary" onClick={reset}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" loading={isSaving}>
+                                {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add department'}
+                            </Button>
+                        </div>
+                    </form>
+                </Panel>
+            )}
 
             {isLoading ? (
                 <Loader message="Loading departments..." />
             ) : isError ? (
                 <ErrorState title="Could not load departments" onRetry={refetch} />
-            ) : categories.length === 0 ? (
-                <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                    <p className="text-sm font-medium text-slate-500">No departments yet.</p>
-                </div>
             ) : (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {categories.map((category) => (
-                        <li
-                            key={category._id}
-                            className="rounded-sm border border-white/60 bg-white/80 p-5 shadow-card shadow-slate-200/40 backdrop-blur"
-                        >
-                            <p className="font-semibold text-slate-900">{category.name}</p>
-                            {category.description && (
-                                <p className="mt-1 text-sm text-slate-500">{category.description}</p>
-                            )}
-                            <div className="mt-4 flex gap-3 text-xs font-semibold">
-                                <button
-                                    type="button"
-                                    onClick={() => startEdit(category)}
-                                    className="text-brand transition hover:text-brand-dark"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleDelete(category)}
-                                    className="text-rose-500 transition hover:text-rose-600"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                <>
+                    <Panel padding="0">
+                        <DataTable<TestCategory & { id: string }>
+                            minWidth="36rem"
+                            empty="No departments yet."
+                            rows={categories.map((category) => ({ ...category, id: category._id }))}
+                            columns={[
+                                {
+                                    key: 'name',
+                                    header: 'Department',
+                                    render: (category) => <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{category.name}</span>,
+                                },
+                                {
+                                    key: 'description',
+                                    header: 'Description',
+                                    render: (category) => category.description || <span style={{ color: 'var(--text-faint)' }}>—</span>,
+                                },
+                                {
+                                    key: 'actions',
+                                    header: 'Actions',
+                                    align: 'right',
+                                    render: (category) => (
+                                        <span style={{ display: 'inline-flex', gap: 12 }}>
+                                            <button type="button" onClick={() => startEdit(category)} style={{ ...rowAction, color: 'var(--brand)' }}>
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(category)}
+                                                style={{ ...rowAction, color: 'var(--danger-strong)' }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </span>
+                                    ),
+                                },
+                            ]}
+                        />
+                    </Panel>
+
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
+                        <Icon name="info" size={14} />A department cannot be deleted while tests still reference it.
+                    </p>
+                </>
             )}
-        </div>
+        </>
     );
 };
 

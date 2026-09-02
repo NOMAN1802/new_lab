@@ -7,14 +7,20 @@ const ShellLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="flex min-h-screen bg-slate-50">
+        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--surface-page)' }}>
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <div className="flex w-full flex-col">
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <Topbar onMenuClick={() => setSidebarOpen(true)} />
-                <main className="flex-1 bg-slate-50/60 px-4 py-6 lg:px-10">
-                    <div className="mx-auto max-w-7xl 2xl:max-w-full space-y-8">
-                        <Outlet />
-                    </div>
+                <main
+                    style={{
+                        flex: 1,
+                        padding: 'var(--pad-page-y) var(--pad-page-x) 40px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'var(--gap-grid)',
+                    }}
+                >
+                    <Outlet />
                 </main>
             </div>
         </div>
@@ -22,4 +28,3 @@ const ShellLayout = () => {
 };
 
 export default ShellLayout;
-

@@ -69,8 +69,14 @@ const InvoiceSchema = new Schema<TInvoice>(
     },
 
     grossAmount: { type: Number, required: true, min: 0 },
-    waiverPercent: { type: Number, required: true, min: 0, max: 100, default: 0 },
-    waiverAmount: { type: Number, required: true, min: 0, default: 0 },
+    discountPercent: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
+    discountAmount: { type: Number, required: true, min: 0, default: 0 },
     netPayable: { type: Number, required: true, min: 0 },
 
     paidAmount: { type: Number, required: true, min: 0, default: 0 },
@@ -81,13 +87,15 @@ const InvoiceSchema = new Schema<TInvoice>(
       default: 'unpaid',
     },
 
-    commissionPercent: {
-      type: Number,
+    commissionType: {
+      type: String,
+      enum: ['percent', 'fixed'],
       required: true,
-      min: 0,
-      max: 100,
-      default: 0,
+      default: 'percent',
     },
+    // A percentage when type is 'percent', a taka figure when 'fixed', so it
+    // deliberately carries no max.
+    commissionValue: { type: Number, required: true, min: 0, default: 0 },
     commissionAmount: { type: Number, required: true, min: 0, default: 0 },
     commissionStatus: {
       type: String,
