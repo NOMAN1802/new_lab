@@ -6,6 +6,8 @@ import ExportButtons from '@/components/common/ExportButtons';
 import Loader from '@/components/common/Loader';
 import StatCard from '@/components/common/StatCard';
 import StatusBadge from '@/components/common/StatusBadge';
+import DataTable from '@/components/ui/DataTable';
+import Panel from '@/components/ui/Panel';
 import { formatDate } from '@/lib/format';
 import { useGetPatientReportQuery } from '@/services/reportsApi';
 import type { PatientReportRow } from '@/services/reportsApi';
@@ -28,11 +30,11 @@ const PatientReportPage = () => {
     const { data, isLoading, isError, refetch } = useGetPatientReportQuery(range);
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-wrap items-center justify-between gap-4">
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Patient report</h1>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Patient report</h2>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)', maxWidth: 620 }}>
                         Visits, tests performed and report status for the selected dates.
                     </p>
                 </div>
@@ -43,7 +45,7 @@ const PatientReportPage = () => {
                     columns={COLUMNS}
                     rows={data?.rows ?? []}
                 />
-            </header>
+            </div>
 
             <DateRangePicker value={range} onChange={setRange} />
 
@@ -53,71 +55,60 @@ const PatientReportPage = () => {
                 <ErrorState title="Could not load the patient report" onRetry={refetch} />
             ) : (
                 <>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <StatCard label="Visits" value={data.summary.visits} />
-                        <StatCard label="New patients" value={data.summary.newPatients} />
-                        <StatCard label="Tests performed" value={data.summary.testsPerformed} />
-                        <StatCard label="Patients on file" value={data.summary.totalPatients} />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                        <StatCard label="Visits" value={data.summary.visits} icon="clipboard-list" />
+                        <StatCard label="New patients" value={data.summary.newPatients} icon="user-round-plus" accent="brand" />
+                        <StatCard label="Tests performed" value={data.summary.testsPerformed} icon="flask-conical" accent="neutral" />
+                        <StatCard label="Patients on file" value={data.summary.totalPatients} icon="users" accent="neutral" />
                     </div>
 
-                    {data.rows.length === 0 ? (
-                        <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                            <p className="text-sm font-medium text-slate-500">
-                                No visits in this date range.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto rounded-sm border border-white/60 bg-white/80 shadow-card shadow-slate-200/40 backdrop-blur">
-                            <table className="w-full min-w-[56rem] text-left text-sm">
-                                <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                                    <tr>
-                                        <th className="px-5 py-4 font-semibold">Invoice</th>
-                                        <th className="px-5 py-4 font-semibold">Date</th>
-                                        <th className="px-5 py-4 font-semibold">Patient</th>
-                                        <th className="px-5 py-4 font-semibold">Age / Sex</th>
-                                        <th className="px-5 py-4 font-semibold">Tests</th>
-                                        <th className="px-5 py-4 text-right font-semibold">Pending</th>
-                                        <th className="px-5 py-4 font-semibold">Payment</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {data.rows.map((row) => (
-                                        <tr key={row.invoiceNumber} className="hover:bg-slate-50/70">
-                                            <td className="px-5 py-4 font-mono text-xs font-semibold text-brand">
-                                                {row.invoiceNumber}
-                                            </td>
-                                            <td className="px-5 py-4 text-slate-500">
-                                                {formatDate(row.visitDate)}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <p className="font-medium text-slate-900">
-                                                    {row.patientName}
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    {row.patientId} · {row.phone}
-                                                </p>
-                                            </td>
-                                            <td className="px-5 py-4 capitalize text-slate-600">
-                                                {row.age} / {row.gender}
-                                            </td>
-                                            <td className="px-5 py-4 text-slate-600">
-                                                {row.tests.join(', ')}
-                                            </td>
-                                            <td className="px-5 py-4 text-right tabular-nums text-slate-600">
-                                                {row.reportsPending}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <StatusBadge status={row.paymentStatus} />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <Panel padding="0">
+                        <DataTable<PatientReportRow & { id: string }>
+                            minWidth="56rem"
+                            empty="No visits in this date range."
+                            rows={data.rows.map((row) => ({ ...row, id: row.invoiceNumber }))}
+                            columns={[
+                                {
+                                    key: 'invoiceNumber',
+                                    header: 'Invoice',
+                                    mono: true,
+                                    render: (row) => <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{row.invoiceNumber}</span>,
+                                },
+                                {
+                                    key: 'visitDate',
+                                    header: 'Date',
+                                    render: (row) => <span style={{ color: 'var(--text-muted)' }}>{formatDate(row.visitDate)}</span>,
+                                },
+                                {
+                                    key: 'patientName',
+                                    header: 'Patient',
+                                    render: (row) => (
+                                        <div>
+                                            <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientName}</p>
+                                            <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                                                {row.patientId} · {row.phone}
+                                            </p>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    key: 'ageSex',
+                                    header: 'Age / Sex',
+                                    render: (row) => (
+                                        <span style={{ textTransform: 'capitalize' }}>
+                                            {row.age} / {row.gender}
+                                        </span>
+                                    ),
+                                },
+                                { key: 'tests', header: 'Tests', render: (row) => row.tests.join(', ') },
+                                { key: 'reportsPending', header: 'Pending', align: 'right' },
+                                { key: 'paymentStatus', header: 'Payment', render: (row) => <StatusBadge status={row.paymentStatus} /> },
+                            ]}
+                        />
+                    </Panel>
                 </>
             )}
-        </div>
+        </>
     );
 };
 

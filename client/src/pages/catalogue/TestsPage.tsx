@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
+import StatusBadge from '@/components/common/StatusBadge';
+import Button from '@/components/ui/Button';
+import Checkbox from '@/components/ui/Checkbox';
+import DataTable from '@/components/ui/DataTable';
+import Panel from '@/components/ui/Panel';
+import Select from '@/components/ui/Select';
+import TextField from '@/components/ui/TextField';
 import { useRole } from '@/hooks/useRole';
 import { apiErrorMessage, money } from '@/lib/format';
 import { useGetTestCategoriesQuery } from '@/services/testCategoriesApi';
-import {
-    useCreateTestMutation,
-    useDeleteTestMutation,
-    useGetTestsQuery,
-    useUpdateTestMutation,
-} from '@/services/testsApi';
+import { useCreateTestMutation, useDeleteTestMutation, useGetTestsQuery, useUpdateTestMutation } from '@/services/testsApi';
 import type { LabTest, LabTestInput } from '@/services/testsApi';
 
 const EMPTY: LabTestInput = {
@@ -24,8 +25,15 @@ const EMPTY: LabTestInput = {
     isActive: true,
 };
 
-const fieldClass =
-    'w-full rounded-sm border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+const rowAction: React.CSSProperties = {
+    border: 0,
+    background: 'transparent',
+    padding: 0,
+    cursor: 'pointer',
+    fontFamily: 'var(--font-sans)',
+    fontSize: 12,
+    fontWeight: 600,
+};
 
 const TestsPage = () => {
     const { isAdmin } = useRole();
@@ -52,8 +60,7 @@ const TestsPage = () => {
     };
 
     const startEdit = (test: LabTest) => {
-        const categoryId =
-            typeof test.category === 'object' ? test.category?._id : test.category;
+        const categoryId = typeof test.category === 'object' ? test.category?._id : test.category;
 
         setEditing(test);
         setForm({
@@ -123,239 +130,177 @@ const TestsPage = () => {
     const isSaving = isCreating || isUpdating;
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-wrap items-center justify-between gap-4">
+        <>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Test catalogue</h1>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Test catalogue</h2>
+                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
                         {tests.length} tests · prices apply to every new booking
                     </p>
                 </div>
                 {isAdmin && (
-                    <button
-                        type="button"
-                        onClick={startCreate}
-                        className="inline-flex items-center gap-2 rounded-sm bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-                    >
-                        <PlusIcon className="h-5 w-5" />
+                    <Button icon="plus" onClick={startCreate}>
                         Add test
-                    </button>
+                    </Button>
                 )}
-            </header>
+            </div>
 
-            <div className="relative max-w-md">
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search by name or code"
-                    className="w-full rounded-sm border border-slate-200 bg-white py-2.5 pl-12 pr-4 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-                />
+            <div style={{ maxWidth: 420 }}>
+                <TextField icon="search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or code" />
             </div>
 
             {isFormOpen && isAdmin && (
-                <form
-                    onSubmit={handleSubmit}
-                    className="space-y-5 rounded-sm border border-brand/20 bg-white/90 p-6 shadow-card shadow-slate-200/40 backdrop-blur"
-                >
-                    <h2 className="text-lg font-semibold text-slate-900">
-                        {editing ? `Edit ${editing.name}` : 'New test'}
-                    </h2>
-
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Test code
-                            </label>
-                            <input
+                <Panel title={editing ? `Edit ${editing.name}` : 'New test'} style={{ borderColor: 'var(--indigo-200)' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
+                            <TextField
+                                label="Test code"
                                 value={form.testCode}
                                 onChange={(e) => setForm({ ...form, testCode: e.target.value })}
-                                className={`${fieldClass} font-mono uppercase`}
                                 placeholder="CBC"
                             />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Test name
-                            </label>
-                            <input
+                            <TextField
+                                label="Test name"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                className={fieldClass}
                                 placeholder="Complete Blood Count"
                             />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Department
-                            </label>
-                            <select
+                            <Select
+                                label="Department"
                                 value={form.category}
                                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                                className={fieldClass}
-                            >
-                                <option value="">Unassigned</option>
-                                {categories.map((category) => (
-                                    <option key={category._id} value={category._id}>
-                                        {category.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Price (৳)
-                            </label>
-                            <input
+                                placeholder="Unassigned"
+                                options={categories.map((category) => ({ label: category.name, value: category._id }))}
+                            />
+                            <TextField
+                                label="Price (৳)"
                                 type="number"
                                 min={0}
                                 step="0.01"
                                 value={form.price || ''}
-                                onChange={(e) =>
-                                    setForm({ ...form, price: Number(e.target.value) })
-                                }
-                                className={`${fieldClass} tabular-nums`}
+                                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
                             />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Sample type <span className="text-slate-400">(optional)</span>
-                            </label>
-                            <input
+                            <TextField
+                                label="Sample type"
+                                optional
                                 value={form.sampleType}
                                 onChange={(e) => setForm({ ...form, sampleType: e.target.value })}
-                                className={fieldClass}
                                 placeholder="Blood, Urine..."
                             />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                Report ready in (days)
-                            </label>
-                            <input
+                            <TextField
+                                label="Report ready in (days)"
                                 type="number"
                                 min={0}
                                 value={form.reportDeliveryDays ?? ''}
-                                onChange={(e) =>
-                                    setForm({
-                                        ...form,
-                                        reportDeliveryDays: Number(e.target.value),
-                                    })
-                                }
-                                className={`${fieldClass} tabular-nums`}
+                                onChange={(e) => setForm({ ...form, reportDeliveryDays: Number(e.target.value) })}
                             />
                         </div>
-                    </div>
 
-                    <label className="flex items-center gap-2 text-sm text-slate-600">
-                        <input
-                            type="checkbox"
+                        <Checkbox
+                            accent="brand"
+                            label="Available for booking"
                             checked={form.isActive}
                             onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                            className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
                         />
-                        Available for booking
-                    </label>
 
-                    <div className="flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={closeForm}
-                            className="rounded-sm border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSaving}
-                            className="rounded-sm bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-60"
-                        >
-                            {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add test'}
-                        </button>
-                    </div>
-                </form>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <Button variant="secondary" onClick={closeForm}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" loading={isSaving}>
+                                {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add test'}
+                            </Button>
+                        </div>
+                    </form>
+                </Panel>
             )}
 
             {isLoading ? (
                 <Loader message="Loading catalogue..." />
             ) : isError ? (
                 <ErrorState title="Could not load the test catalogue" onRetry={refetch} />
-            ) : tests.length === 0 ? (
-                <div className="rounded-sm border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                    <p className="text-sm font-medium text-slate-500">
-                        {search ? `No tests match "${search}".` : 'The catalogue is empty.'}
-                    </p>
-                </div>
             ) : (
-                <div className="overflow-x-auto rounded-sm border border-white/60 bg-white/80 shadow-card shadow-slate-200/40 backdrop-blur">
-                    <table className="w-full min-w-[44rem] text-left text-sm">
-                        <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th className="px-5 py-4 font-semibold">Code</th>
-                                <th className="px-5 py-4 font-semibold">Test</th>
-                                <th className="px-5 py-4 font-semibold">Department</th>
-                                <th className="px-5 py-4 font-semibold">Sample</th>
-                                <th className="px-5 py-4 text-right font-semibold">Price</th>
-                                {isAdmin && <th className="px-5 py-4 text-right font-semibold">Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {tests.map((test) => (
-                                <tr
-                                    key={test._id}
-                                    className={`transition hover:bg-slate-50/70 ${
-                                        test.isActive ? '' : 'opacity-50'
-                                    }`}
-                                >
-                                    <td className="px-5 py-4 font-mono text-xs font-semibold text-brand">
-                                        {test.testCode}
-                                    </td>
-                                    <td className="px-5 py-4 font-medium text-slate-900">
-                                        {test.name}
-                                        {!test.isActive && (
-                                            <span className="ml-2 text-xs text-slate-400">(inactive)</span>
-                                        )}
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-600">
-                                        {test.categoryName ??
-                                            (typeof test.category === 'object'
-                                                ? test.category?.name
-                                                : '—')}
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-500">
-                                        {test.sampleType || '—'}
-                                    </td>
-                                    <td className="px-5 py-4 text-right font-semibold tabular-nums text-slate-900">
-                                        {money(test.price)}
-                                    </td>
-                                    {isAdmin && (
-                                        <td className="px-5 py-4">
-                                            <div className="flex justify-end gap-3 text-xs font-semibold">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startEdit(test)}
-                                                    className="text-brand transition hover:text-brand-dark"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(test)}
-                                                    className="text-rose-500 transition hover:text-rose-600"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <Panel padding="0">
+                    <DataTable<LabTest & { id: string }>
+                        minWidth="52rem"
+                        empty={search ? `No tests match "${search}".` : 'The catalogue is empty.'}
+                        rows={tests.map((test) => ({ ...test, id: test._id }))}
+                        columns={[
+                            {
+                                key: 'testCode',
+                                header: 'Code',
+                                mono: true,
+                                render: (test) => (
+                                    <span style={{ fontWeight: 600, color: 'var(--brand)', opacity: test.isActive ? 1 : 0.5 }}>{test.testCode}</span>
+                                ),
+                            },
+                            {
+                                key: 'name',
+                                header: 'Test',
+                                render: (test) => (
+                                    <span style={{ opacity: test.isActive ? 1 : 0.5 }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{test.name}</span>
+                                        {!test.isActive && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-faint)' }}>(inactive)</span>}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: 'category',
+                                header: 'Department',
+                                render: (test) =>
+                                    test.categoryName ?? (typeof test.category === 'object' ? test.category?.name : null) ?? (
+                                        <span style={{ color: 'var(--text-faint)' }}>—</span>
+                                    ),
+                            },
+                            {
+                                key: 'sampleType',
+                                header: 'Sample',
+                                render: (test) => <span style={{ color: 'var(--text-muted)' }}>{test.sampleType || '—'}</span>,
+                            },
+                            {
+                                key: 'reportDeliveryDays',
+                                header: 'Report in',
+                                align: 'right',
+                                render: (test) => {
+                                    const days = test.reportDeliveryDays ?? 1;
+                                    return `${days} ${days === 1 ? 'day' : 'days'}`;
+                                },
+                            },
+                            { key: 'status', header: 'Status', render: (test) => <StatusBadge status={test.isActive ? 'active' : 'inactive'} /> },
+                            {
+                                key: 'price',
+                                header: 'Price',
+                                align: 'right',
+                                render: (test) => <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{money(test.price)}</span>,
+                            },
+                            ...(isAdmin
+                                ? [
+                                      {
+                                          key: 'actions',
+                                          header: 'Actions',
+                                          align: 'right' as const,
+                                          render: (test: LabTest) => (
+                                              <span style={{ display: 'inline-flex', gap: 12 }}>
+                                                  <button type="button" onClick={() => startEdit(test)} style={{ ...rowAction, color: 'var(--brand)' }}>
+                                                      Edit
+                                                  </button>
+                                                  <button
+                                                      type="button"
+                                                      onClick={() => handleDelete(test)}
+                                                      style={{ ...rowAction, color: 'var(--danger-strong)' }}
+                                                  >
+                                                      Remove
+                                                  </button>
+                                              </span>
+                                          ),
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
+                </Panel>
             )}
-        </div>
+        </>
     );
 };
 

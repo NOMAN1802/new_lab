@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
+import Button from '@/components/ui/Button';
 import { exportToExcel, exportToPdf } from '@/lib/exportTable';
 import type { ExportColumn } from '@/lib/exportTable';
 
@@ -12,11 +12,8 @@ type ExportButtonsProps<T> = {
     rows: T[];
 };
 
-const buttonClass =
-    'inline-flex items-center gap-2 rounded-sm border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40';
-
+/** PDF + Excel pair. Both libraries load on demand, so the busy state is real. */
 const ExportButtons = <T,>({ rows, ...options }: ExportButtonsProps<T>) => {
-    // The export libraries load on demand, so the click has real latency.
     const [busy, setBusy] = useState<'pdf' | 'excel' | null>(null);
     const disabled = rows.length === 0 || busy !== null;
 
@@ -34,25 +31,13 @@ const ExportButtons = <T,>({ rows, ...options }: ExportButtonsProps<T>) => {
     };
 
     return (
-        <div className="flex gap-2">
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => run('pdf')}
-                className={buttonClass}
-            >
-                <ArrowDownTrayIcon className="h-4 w-4" />
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <Button variant="secondary" size="sm" icon="download" disabled={disabled} loading={busy === 'pdf'} onClick={() => run('pdf')}>
                 {busy === 'pdf' ? 'Building...' : 'PDF'}
-            </button>
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => run('excel')}
-                className={buttonClass}
-            >
-                <ArrowDownTrayIcon className="h-4 w-4" />
+            </Button>
+            <Button variant="secondary" size="sm" icon="download" disabled={disabled} loading={busy === 'excel'} onClick={() => run('excel')}>
                 {busy === 'excel' ? 'Building...' : 'Excel'}
-            </button>
+            </Button>
         </div>
     );
 };
