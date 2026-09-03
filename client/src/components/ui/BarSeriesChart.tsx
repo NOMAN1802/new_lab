@@ -50,7 +50,7 @@ const BarSeriesChart = ({ data = [], highlight = null, height = 200, valueFormat
                                 width: '100%',
                                 maxWidth: '34px',
                                 height: `${(d.value / max) * 100}%`,
-                                background: active ? 'var(--brand)' : 'var(--chart-track)',
+                                background: active ? 'var(--chart-1)' : 'var(--chart-track)',
                                 borderRadius: 'var(--radius-sm)',
                                 transition: 'height var(--dur-slow) var(--ease-standard)',
                             }}
@@ -59,7 +59,7 @@ const BarSeriesChart = ({ data = [], highlight = null, height = 200, valueFormat
                             style={{
                                 fontSize: 'var(--text-12)',
                                 fontWeight: (active ? 'var(--fw-semibold)' : 'var(--fw-medium)') as CSSProperties['fontWeight'],
-                                color: active ? 'var(--brand)' : 'var(--text-faint)',
+                                color: active ? 'var(--chart-1)' : 'var(--text-faint)',
                             }}
                         >
                             {d.label}

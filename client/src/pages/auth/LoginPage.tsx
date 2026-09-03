@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '@/i18n/useLanguage';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CENTRE } from '@/lib/centre';
 import { apiErrorMessage } from '@/lib/format';
@@ -17,6 +18,7 @@ const HIGHLIGHTS: [IconName, string][] = [
 ];
 
 const LoginPage = () => {
+    const t = useT();
     const [formState, setFormState] = useState({ email: '', password: '' });
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
@@ -91,7 +93,7 @@ const LoginPage = () => {
                                 opacity: 0.75,
                             }}
                         >
-                            Diagnostic Centre
+                            {t('login.diagnosticCentre')}
                         </p>
                         <p style={{ fontSize: 15, fontWeight: 700 }}>{CENTRE.name}</p>
                     </div>
@@ -140,7 +142,7 @@ const LoginPage = () => {
                     </div>
 
                     <TextField
-                        label="Email"
+                        label={t('col.email')}
                         icon="mail"
                         type="email"
                         id="email"
@@ -153,7 +155,7 @@ const LoginPage = () => {
                     />
 
                     <TextField
-                        label="Password"
+                        label={t('fld.password')}
                         icon="lock"
                         type="password"
                         id="password"
@@ -172,7 +174,7 @@ const LoginPage = () => {
                     </Button>
 
                     <p style={{ fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
-                        Access is role-based and enforced by the API. Receptionists never see aggregate revenue or commission.
+                        {t('jsx.accessNote')}
                     </p>
                 </form>
             </div>

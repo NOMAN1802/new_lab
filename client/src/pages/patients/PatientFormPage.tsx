@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useT } from '@/i18n/useLanguage';
 import { toast } from 'sonner';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
@@ -25,6 +26,7 @@ const GENDERS: Gender[] = ['male', 'female', 'other'];
 const PatientFormPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const t = useT();
     const isEdit = Boolean(id);
 
     const { data: patient, isLoading, isError, refetch } = useGetPatientQuery(id!, {
@@ -89,17 +91,17 @@ const PatientFormPage = () => {
         }
     };
 
-    if (isEdit && isLoading) return <Loader message="Loading patient..." />;
+    if (isEdit && isLoading) return <Loader message={t('ld.patient')} />;
     if (isEdit && isError) {
-        return <ErrorState title="Could not load patient" description="This patient record is unavailable." onRetry={refetch} />;
+        return <ErrorState title={t('err.patient')} description={t('err.patientGone')} onRetry={refetch} />;
     }
 
     const isSaving = isCreating || isUpdating;
 
     return (
-        <div style={{ maxWidth: 680, display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
             <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{isEdit ? 'Edit patient' : 'Register patient'}</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{isEdit ? t('pform.edit') : t('pform.register')}</h2>
                 <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
                     {isEdit
                         ? `Patient ID ${patient?.patientId} cannot be changed.`
@@ -110,7 +112,7 @@ const PatientFormPage = () => {
             <Panel>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <TextField
-                        label="Full name"
+                        label={t('pform.fullName')}
                         id="name"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -120,7 +122,7 @@ const PatientFormPage = () => {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                         <TextField
-                            label="Age"
+                            label={t('pform.age')}
                             id="age"
                             type="number"
                             min={0}
@@ -131,7 +133,7 @@ const PatientFormPage = () => {
                             error={errors.age}
                         />
                         <Select
-                            label="Sex"
+                            label={t('pform.sex')}
                             id="gender"
                             value={form.gender}
                             onChange={(e) => setForm({ ...form, gender: e.target.value as Gender })}
@@ -140,7 +142,7 @@ const PatientFormPage = () => {
                     </div>
 
                     <TextField
-                        label="Phone"
+                        label={t('pform.phone')}
                         id="phone"
                         value={form.phone}
                         onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -149,7 +151,7 @@ const PatientFormPage = () => {
                     />
 
                     <Textarea
-                        label="Address"
+                        label={t('pform.address')}
                         id="address"
                         optional
                         rows={3}
@@ -159,7 +161,7 @@ const PatientFormPage = () => {
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
                         <Button variant="secondary" onClick={() => navigate(-1)}>
-                            Cancel
+                            {t('ctrl.cancel')}
                         </Button>
                         <Button type="submit" loading={isSaving}>
                             {isSaving ? 'Saving...' : isEdit ? 'Save changes' : 'Register patient'}

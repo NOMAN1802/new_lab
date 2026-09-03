@@ -40,24 +40,33 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
  * Note what is absent: grossAmount, discountAmount, netPayable, commissionAmount,
  * paidAmount, dueAmount and paymentStatus are all server-derived. Zod strips
  * unknown keys, so a client sending them has no effect.
+ *
+ * commissionType and commissionValue are absent too, and deliberately. Booking
+ * records *who* referred the patient, never what the centre owes them: the
+ * accrual comes from the referrer's standing terms, and only an Admin changes
+ * those or settles them from the Doctor's Commission screen.
  */
-const createInvoiceValidationSchema = withCommissionCheck(
-  z.object({
-    body: z.object({
-      patient: objectId,
-      referrer: objectId.optional(),
-      testIds: z
-        .array(objectId, { required_error: 'Select at least one test' })
-        .min(1, 'Select at least one test'),
-      visitDate: z.string().datetime().optional(),
-      discountPercent: percent.optional(),
-      commissionType: commissionType.optional(),
-      commissionValue: commissionValue.optional(),
-      notes: z.string().trim().optional(),
-      collectFullPayment: z.boolean().optional(),
-    }),
-  })
-);
+const createInvoiceValidationSchema = z.object({
+  body: z.object({
+    patient: objectId,
+    referrer: objectId.optional(),
+    testIds: z
+      .array(objectId, { required_error: 'Select at least one test' })
+      .min(1, 'Select at least one test'),
+    visitDate: z.string().datetime().optional(),
+    discountPercent: percent.optional(),
+    notes: z.string().trim().optional(),
+    collectFullPayment: z.boolean().optional(),
+    /**
+     * A part-payment taken at the counter. The service clamps it to the net it
+     * computes, so an over-figure can never receipt more than is owed.
+     */
+    advanceAmount: z
+      .number({ invalid_type_error: 'Must be a number' })
+      .min(0, 'Cannot be negative')
+      .optional(),
+  }),
+});
 
 const updateInvoiceItemsValidationSchema = withCommissionCheck(
   z.object({

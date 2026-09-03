@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import TextField from '@/components/ui/TextField';
 import { apiErrorMessage } from '@/lib/format';
 import {
@@ -17,16 +18,20 @@ import {
 import type { TestCategory } from '@/services/testCategoriesApi';
 
 const rowAction: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 30,
+    height: 30,
     border: 0,
     background: 'transparent',
-    padding: 0,
+    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 12,
-    fontWeight: 600,
+    transition: 'var(--transition-control)',
 };
 
 const TestCategoriesPage = () => {
+    const t = useT();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [editing, setEditing] = useState<TestCategory | null>(null);
@@ -105,11 +110,11 @@ const TestCategoriesPage = () => {
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Departments</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                        Every test belongs to one department. Reports group revenue by these.
+                        {t('jsx.departmentNote')}
                     </p>
                 </div>
                 <Button icon="plus" onClick={startCreate}>
-                    Add department
+                    {t('jsx.addDepartment')}
                 </Button>
             </div>
 
@@ -117,19 +122,19 @@ const TestCategoriesPage = () => {
                 <Panel title={editing ? `Edit ${editing.name}` : 'New department'} style={{ borderColor: 'var(--indigo-200)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
-                            <TextField label="Department name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pathology" />
+                            <TextField label={t('fld.departmentName')} value={name} onChange={(e) => setName(e.target.value)} placeholder="Pathology" />
                             <TextField
-                                label="Description"
+                                label={t('fld.description')}
                                 optional
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="What this department covers"
+                                placeholder={t('ph.departmentCovers')}
                             />
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                             <Button variant="secondary" onClick={reset}>
-                                Cancel
+                                {t('ctrl.cancel')}
                             </Button>
                             <Button type="submit" loading={isSaving}>
                                 {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add department'}
@@ -140,42 +145,48 @@ const TestCategoriesPage = () => {
             )}
 
             {isLoading ? (
-                <Loader message="Loading departments..." />
+                <Loader message={t('ld.departments')} />
             ) : isError ? (
-                <ErrorState title="Could not load departments" onRetry={refetch} />
+                <ErrorState title={t('err.departments')} onRetry={refetch} />
             ) : (
                 <>
                     <Panel padding="0">
                         <DataTable<TestCategory & { id: string }>
                             minWidth="36rem"
-                            empty="No departments yet."
+                            empty={t('empty.departments')}
                             rows={categories.map((category) => ({ ...category, id: category._id }))}
                             columns={[
                                 {
                                     key: 'name',
-                                    header: 'Department',
+                                    header: t('col.department'),
                                     render: (category) => <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{category.name}</span>,
                                 },
                                 {
                                     key: 'description',
-                                    header: 'Description',
+                                    header: t('col.description'),
                                     render: (category) => category.description || <span style={{ color: 'var(--text-faint)' }}>—</span>,
                                 },
                                 {
                                     key: 'actions',
-                                    header: 'Actions',
+                                    header: t('col.actions'),
                                     align: 'right',
                                     render: (category) => (
-                                        <span style={{ display: 'inline-flex', gap: 12 }}>
-                                            <button type="button" onClick={() => startEdit(category)} style={{ ...rowAction, color: 'var(--brand)' }}>
-                                                Edit
+                                        <span style={{ display: 'inline-flex', gap: 4 }}>
+                                            <button
+                                                type="button"
+                                                aria-label={`Edit ${category.name}`}
+                                                onClick={() => startEdit(category)}
+                                                style={{ ...rowAction, color: 'var(--brand)' }}
+                                            >
+                                                <Icon name="pencil" size={16} />
                                             </button>
                                             <button
                                                 type="button"
+                                                aria-label={`Delete ${category.name}`}
                                                 onClick={() => handleDelete(category)}
                                                 style={{ ...rowAction, color: 'var(--danger-strong)' }}
                                             >
-                                                Delete
+                                                <Icon name="trash-2" size={16} />
                                             </button>
                                         </span>
                                     ),

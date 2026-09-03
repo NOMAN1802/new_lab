@@ -162,8 +162,9 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
       },
     ]),
 
-    // User activity monitoring (proposal §4.2).
-    ActivityLogServices.getRecentActivity(10),
+    // User activity monitoring (proposal §4.2). The dashboard shows the last
+    // five; the Activity screen is where the full log is read.
+    ActivityLogServices.getRecentActivity(5),
     ActivityLogServices.getActivityByUser({
       startDate: range.start?.toISOString().slice(0, 10),
       endDate: range.end?.toISOString().slice(0, 10),
@@ -183,6 +184,13 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
     period: {
       collected: periodCollected,
       ...periodBilled,
+      /**
+       * What the centre keeps: cash in hand, less the commission owed to the
+       * referring doctors on it. Built from collected rather than billed —
+       * an unpaid invoice has earned nothing yet. Same definition as the
+       * financial summary's `revenue`.
+       */
+      revenue: round2(periodCollected - periodBilled.commission),
     },
     commission: {
       accrued: round2(periodBilled.commission),

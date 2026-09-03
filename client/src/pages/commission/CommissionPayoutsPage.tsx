@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import Select from '@/components/ui/Select';
 import TextField from '@/components/ui/TextField';
 import { apiErrorMessage, commissionBasis, formatDate, money } from '@/lib/format';
@@ -15,6 +16,7 @@ import type { CommissionPayout } from '@/services/commissionPayoutsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
 
 const CommissionPayoutsPage = () => {
+    const t = useT();
     const [searchParams, setSearchParams] = useSearchParams();
     const referrerId = searchParams.get('referrer') ?? '';
     const [note, setNote] = useState('');
@@ -56,13 +58,13 @@ const CommissionPayoutsPage = () => {
     return (
         <>
             <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Commission payouts</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('comm.title')}</h2>
                 <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                    Settle accrued commission. Recording a payout marks the covered invoices as paid.
+                    {t('comm.subtitle')}
                 </p>
             </div>
 
-            <Panel title="Settle a referrer" subtitle="Every unsettled invoice for the referrer is covered by one payout">
+            <Panel title={t('ttl.settleReferrer')} subtitle={t('ttl.payoutCovers')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <Select
                         value={referrerId}
@@ -70,7 +72,7 @@ const CommissionPayoutsPage = () => {
                             const next = e.target.value;
                             setSearchParams(next ? { referrer: next } : {});
                         }}
-                        placeholder="Select a referrer"
+                        placeholder={t('ph.selectReferrer')}
                         options={referrers.map((referrer) => ({
                             label: `${referrer.referrerCode} · ${referrer.name}`,
                             value: referrer._id,
@@ -78,7 +80,7 @@ const CommissionPayoutsPage = () => {
                         style={{ maxWidth: 420 }}
                     />
 
-                    {referrerId && loadingPending && <Loader message="Loading pending commission..." />}
+                    {referrerId && loadingPending && <Loader message={t('ld.pendingCommission')} />}
 
                     {referrerId && pending && !loadingPending && (
                         <>
@@ -118,7 +120,7 @@ const CommissionPayoutsPage = () => {
                                         color: 'var(--text-muted)',
                                     }}
                                 >
-                                    Nothing outstanding for this referrer.
+                                    {t('jsx.nothingOutstandingRef')}
                                 </p>
                             ) : (
                                 <>
@@ -130,7 +132,7 @@ const CommissionPayoutsPage = () => {
                                             columns={[
                                                 {
                                                     key: 'invoiceNumber',
-                                                    header: 'Invoice',
+                                                    header: t('col.invoice'),
                                                     mono: true,
                                                     render: (invoice) => (
                                                         <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{invoice.invoiceNumber}</span>
@@ -138,10 +140,10 @@ const CommissionPayoutsPage = () => {
                                                 },
                                                 {
                                                     key: 'visitDate',
-                                                    header: 'Date',
+                                                    header: t('col.date'),
                                                     render: (invoice) => <span style={{ color: 'var(--text-muted)' }}>{formatDate(invoice.visitDate)}</span>,
                                                 },
-                                                { key: 'netPayable', header: 'Net', align: 'right', render: (invoice) => money(invoice.netPayable) },
+                                                { key: 'netPayable', header: t('col.net'), align: 'right', render: (invoice) => money(invoice.netPayable) },
                                                 {
                                                     key: 'rate',
                                                     header: 'Rate',
@@ -154,7 +156,7 @@ const CommissionPayoutsPage = () => {
                                                 },
                                                 {
                                                     key: 'commissionAmount',
-                                                    header: 'Commission',
+                                                    header: t('col.commission'),
                                                     align: 'right',
                                                     render: (invoice) => (
                                                         <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -168,12 +170,12 @@ const CommissionPayoutsPage = () => {
 
                                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
                                         <TextField
-                                            label="Note"
+                                            label={t('inv.note')}
                                             optional
                                             value={note}
                                             onChange={(e) => setNote(e.target.value)}
-                                            placeholder="Paid in cash on..."
-                                            hint="Shows on the payout record and in the activity log."
+                                            placeholder={t('ph.paidCash')}
+                                            hint={t('hint.payoutNote')}
                                             style={{ flex: 1, minWidth: 260 }}
                                         />
                                         <Button variant="accent" icon="circle-check" loading={isPaying} onClick={handlePayout} style={{ height: 'var(--control-h)' }}>
@@ -194,14 +196,14 @@ const CommissionPayoutsPage = () => {
             <h3 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-heading)' }}>Payout history</h3>
 
             {isLoading ? (
-                <Loader message="Loading payouts..." />
+                <Loader message={t('ld.payouts')} />
             ) : isError ? (
-                <ErrorState title="Could not load payouts" onRetry={refetch} />
+                <ErrorState title={t('err.payouts')} onRetry={refetch} />
             ) : (
                 <Panel padding="0">
                     <DataTable<CommissionPayout & { id: string }>
                         minWidth="46rem"
-                        empty="No commission has been paid out yet."
+                        empty={t('empty.commission')}
                         rows={payouts.map((payout) => ({ ...payout, id: payout._id }))}
                         columns={[
                             {
@@ -212,7 +214,7 @@ const CommissionPayoutsPage = () => {
                             },
                             {
                                 key: 'referrerName',
-                                header: 'Referrer',
+                                header: t('col.referrer'),
                                 render: (payout) => (
                                     <div>
                                         <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{payout.referrerName}</p>
@@ -232,7 +234,7 @@ const CommissionPayoutsPage = () => {
                                 header: 'Note',
                                 render: (payout) => payout.note || <span style={{ color: 'var(--text-faint)' }}>—</span>,
                             },
-                            { key: 'invoiceCount', header: 'Invoices', align: 'right' },
+                            { key: 'invoiceCount', header: t('col.invoices'), align: 'right' },
                             {
                                 key: 'amount',
                                 header: 'Amount',

@@ -9,6 +9,7 @@ import type { IconName } from '@/components/ui/Icon';
 import InlineAlert from '@/components/ui/InlineAlert';
 import PageHero from '@/components/ui/PageHero';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import TextField from '@/components/ui/TextField';
 import { CENTRE } from '@/lib/centre';
 import { apiErrorMessage } from '@/lib/format';
@@ -26,6 +27,7 @@ const legend = (icon: IconName, text: string) => (
 );
 
 const SettingsPage = () => {
+    const t = useT();
     const { accessToken, initializing } = useAppSelector((state) => state.auth);
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -53,10 +55,10 @@ const SettingsPage = () => {
         });
     }, [user]);
 
-    if (isLoading) return <Loader fullScreen message="Loading settings..." />;
+    if (isLoading) return <Loader fullScreen message={t('ld.settings')} />;
 
     if (isError || !user) {
-        return <ErrorState title="Unable to load settings" description="Check your network or try refreshing the page." onRetry={refetch} />;
+        return <ErrorState title={t('err.settings')} description={t('err.network')} onRetry={refetch} />;
     }
 
     const dirty =
@@ -123,21 +125,21 @@ const SettingsPage = () => {
     };
 
     const accountFacts: [string, string, IconName][] = [
-        ['Role', user.role, 'shield-check'],
-        ['Centre', CENTRE.name, 'building-2'],
-        ['Time zone', 'Asia/Dhaka (GMT+6)', 'globe'],
-        ['Member since', user.createdAt ? dayjs(user.createdAt).format('D MMM YYYY') : '—', 'calendar'],
+        [t('set.role'), user.role, 'shield-check'],
+        [t('set.centre'), CENTRE.name, 'building-2'],
+        [t('set.timeZone'), 'Asia/Dhaka (GMT+6)', 'globe'],
+        [t('set.memberSince'), user.createdAt ? dayjs(user.createdAt).format('D MMM YYYY') : '—', 'calendar'],
     ];
 
     return (
-        <div style={{ maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
             <PageHero
                 eyebrow="Configuration"
-                title="Account settings"
-                description="Update your account information and security preferences."
+                title={t('set.title')}
+                description={t('set.subtitle')}
             />
 
-            <Panel title="Personal information" subtitle="Your sign-in details. Role and permissions are set by an administrator.">
+            <Panel title={t('set.personalInfo')} subtitle={t('ttl.signInDetails')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {result && (
                         <InlineAlert tone={result.tone} onDismiss={() => setResult(null)}>
@@ -146,9 +148,9 @@ const SettingsPage = () => {
                     )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 20 }}>
-                        <TextField label={legend('user-round', 'Full name')} value={formData.name} onChange={handleChange('name')} placeholder="Enter your name" />
+                        <TextField label={legend('user-round', t('pform.fullName'))} value={formData.name} onChange={handleChange('name')} placeholder={t('ph.yourName')} />
                         <TextField
-                            label={legend('phone', 'Mobile number')}
+                            label={legend('phone', t('fld.mobileNumber'))}
                             type="tel"
                             value={formData.mobileNumber}
                             onChange={handleChange('mobileNumber')}
@@ -157,7 +159,7 @@ const SettingsPage = () => {
                     </div>
 
                     <TextField
-                        label={legend('mail', 'Email address')}
+                        label={legend('mail', t('fld.emailAddress'))}
                         type="email"
                         value={formData.email}
                         onChange={handleChange('email')}
@@ -166,28 +168,28 @@ const SettingsPage = () => {
 
                     <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 20 }}>
                         <TextField
-                            label={legend('key-round', 'New password')}
+                            label={legend('key-round', t('set.newPassword'))}
                             type="password"
                             value={formData.password}
                             onChange={handleChange('password')}
-                            placeholder="Leave blank to keep your current password"
-                            hint="At least 8 characters. Changing it signs you out of every device."
+                            placeholder={t('ph.keepPassword')}
+                            hint={t('hint.password')}
                         />
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 20, flexWrap: 'wrap' }}>
                         <Button icon="check" loading={isUpdating} onClick={handleSave}>
-                            {isUpdating ? 'Saving...' : 'Save changes'}
+                            {isUpdating ? t('set.saving') : t('set.saveChanges')}
                         </Button>
                         <Button variant="secondary" icon="x" disabled={isUpdating || !dirty} onClick={handleReset}>
-                            Reset
+                            {t('jsx.reset')}
                         </Button>
-                        {!dirty && !result && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Nothing changed yet.</span>}
+                        {!dirty && !result && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{t('set.nothingChanged')}</span>}
                     </div>
                 </div>
             </Panel>
 
-            <Panel title="Account" subtitle="Managed by an administrator — contact one to change these.">
+            <Panel title={t('ttl.account')} subtitle={t('ttl.adminManaged')}>
                 <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 16 }}>
                     {accountFacts.map(([label, value, icon]) => (
                         <div

@@ -12,9 +12,15 @@ import AreaTrendChart from '@/components/ui/AreaTrendChart';
 import GaugeMeter from '@/components/ui/GaugeMeter';
 import Icon from '@/components/ui/Icon';
 import { useAppSelector } from '@/hooks/store';
+import { useT } from '@/i18n/useLanguage';
 import { formatDate, formatDateTime, money, toDhakaDateInput } from '@/lib/format';
 import { isAdminDashboard, useGetDashboardQuery } from '@/services/dashboardApi';
-import type { ReferrerSummaryRow, UserCollectionRow } from '@/services/dashboardApi';
+import type { ReferrerSummaryRow } from '@/services/dashboardApi';
+import { useGetInvoicesQuery } from '@/services/invoicesApi';
+import type { Invoice } from '@/services/invoicesApi';
+import type { TranslationKey } from '@/i18n/translations';
+
+const RECENT_INVOICES = 6;
 
 const daysAgo = (days: number) => {
     const date = new Date();
@@ -22,10 +28,10 @@ const daysAgo = (days: number) => {
     return toDhakaDateInput(date);
 };
 
-const RANGES = [
-    { label: '7 days', value: '6' },
-    { label: '30 days', value: '29' },
-    { label: '90 days', value: '89' },
+const RANGES: { key: TranslationKey; value: string }[] = [
+    { key: 'ctrl.7days', value: '6' },
+    { key: 'ctrl.30days', value: '29' },
+    { key: 'ctrl.90days', value: '89' },
 ];
 
 /** Axis labels stay short: the API sends a full ISO day per point. */
@@ -39,6 +45,7 @@ const compactMoney = (value: number) => `৳${Math.round(value / 1000)}K`;
 const DashboardPage = () => {
     const user = useAppSelector((state) => state.auth.user);
     const navigate = useNavigate();
+    const t = useT();
     const [rangeDays, setRangeDays] = useState(29);
 
     const { data, isLoading, isError, refetch } = useGetDashboardQuery({
@@ -47,12 +54,15 @@ const DashboardPage = () => {
         groupBy: 'daily',
     });
 
-    if (isLoading) return <Loader message="Loading dashboard..." />;
+    // The dashboard payload carries no invoice list of its own.
+    const { data: recentInvoices } = useGetInvoicesQuery({ limit: RECENT_INVOICES, sortBy: '-visitDate' });
+
+    if (isLoading) return <Loader message={t('dash.loading')} />;
     if (isError || !data) {
-        return <ErrorState title="Could not load the dashboard" onRetry={refetch} />;
+        return <ErrorState title={t('dash.loadError')} onRetry={refetch} />;
     }
 
-    const greeting = `Good day, ${user?.name?.split(' ')[0] ?? 'there'}`;
+    const greeting = `${t('dash.greeting')}, ${user?.name?.split(' ')[0] ?? ''}`.trim();
 
     // ---- Receptionist view: operational only, no revenue figures ----
     if (!isAdminDashboard(data)) {
@@ -62,27 +72,27 @@ const DashboardPage = () => {
                     <div>
                         <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{greeting}</h2>
                         <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                            Today at the centre · {formatDate(new Date())} · Asia/Dhaka
+                            {t('dash.todayAtCentre')} · {formatDate(new Date())} · Asia/Dhaka
                         </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <Button variant="secondary" icon="user-round-plus" onClick={() => navigate('/patients/new')}>
-                            Register patient
+                            {t('patients.register')}
                         </Button>
                         <Button icon="plus" onClick={() => navigate('/billing/new')}>
-                            New booking
+                            {t('invoices.newBooking')}
                         </Button>
                     </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                    <StatCard label="Today's bookings" value={data.today.bookings} icon="clipboard-list" />
-                    <StatCard label="Cash I collected today" value={money(data.today.myCollection)} icon="banknote" accent="accent" />
-                    <StatCard label="Reports pending" value={data.reports.pending} icon="file-text" accent="warning" />
-                    <StatCard label="Reports delivered" value={data.reports.delivered} icon="file-text" accent="brand" />
+                    <StatCard label={t('dash.bookingsToday')} value={data.today.bookings} icon="clipboard-list" />
+                    <StatCard label={t('dash.myCollection')} value={money(data.today.myCollection)} icon="banknote" accent="accent" />
+                    <StatCard label={t('dash.reportsPending')} value={data.reports.pending} icon="file-text" accent="warning" />
+                    <StatCard label={t('dash.reportsDelivered')} value={data.reports.delivered} icon="file-text" accent="brand" />
                 </div>
 
-                <Panel title="Outstanding payments" subtitle="Invoices still carrying a balance">
+                <Panel title={t('dash.outstandingPayments')} subtitle={t('dash.outstandingBody')}>
                     {data.pendingPayments.length === 0 ? (
                         <p
                             style={{
@@ -94,7 +104,7 @@ const DashboardPage = () => {
                                 color: 'var(--text-muted)',
                             }}
                         >
-                            Nothing outstanding. Every invoice is settled.
+                            {t('dash.nothingOutstanding')}
                         </p>
                     ) : (
                         <DataTable
@@ -103,7 +113,7 @@ const DashboardPage = () => {
                             columns={[
                                 {
                                     key: 'invoiceNumber',
-                                    header: 'Invoice',
+                                    header: t('col.invoice'),
                                     mono: true,
                                     render: (row) => (
                                         <Link to={`/billing/${row._id}`} style={{ fontWeight: 600 }}>
@@ -113,16 +123,16 @@ const DashboardPage = () => {
                                 },
                                 {
                                     key: 'patient',
-                                    header: 'Patient',
+                                    header: t('col.patient'),
                                     render: (row) => (
                                         <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientInfo.name}</span>
                                     ),
                                 },
-                                { key: 'visitDate', header: 'Date', render: (row) => formatDate(row.visitDate) },
-                                { key: 'paymentStatus', header: 'Status', render: (row) => <StatusBadge status={row.paymentStatus} /> },
+                                { key: 'visitDate', header: t('col.date'), render: (row) => formatDate(row.visitDate) },
+                                { key: 'paymentStatus', header: t('col.status'), render: (row) => <StatusBadge status={row.paymentStatus} /> },
                                 {
                                     key: 'dueAmount',
-                                    header: 'Due',
+                                    header: t('col.due'),
                                     align: 'right',
                                     render: (row) => (
                                         <span style={{ fontWeight: 600, color: 'var(--danger-strong)' }}>{money(row.dueAmount)}</span>
@@ -138,15 +148,18 @@ const DashboardPage = () => {
 
     // ---- Admin view: full financial overview ----
     const trend = data.trend.map((point) => ({ label: shortDay(point._id), value: point.collected }));
-    const rangeLabel = RANGES.find((range) => Number(range.value) === rangeDays)?.label ?? `${rangeDays + 1} days`;
+    const rangeLabel = t(RANGES.find((range) => Number(range.value) === rangeDays)?.key ?? 'ctrl.30days');
 
     // Collection rate is derived, not stored: cash in over what was actually billed.
     const collectionRate = data.period.net > 0 ? (data.period.collected / data.period.net) * 100 : 0;
 
+    // The API already sends five; the slice keeps the panel honest if that changes.
+    const recentActivity = data.recentActivity.slice(0, 5);
+
     const tiles: [string, string, string][] = [
-        ['Collected in period', money(data.period.collected), 'var(--brand)'],
-        ['Net billed', money(data.period.net), 'var(--accent)'],
-        ['Discounts given', money(data.period.discount), 'var(--warning)'],
+        [t('dash.collectedInPeriod'), money(data.period.collected), 'var(--brand)'],
+        [t('dash.revenueLessCommission'), money(data.period.revenue), 'var(--accent)'],
+        [t('dash.discountsGiven'), money(data.period.discount), 'var(--warning)'],
     ];
 
     return (
@@ -155,34 +168,34 @@ const DashboardPage = () => {
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{greeting}</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                        Financial overview · {formatDate(new Date())} · Asia/Dhaka
+                        {t('dash.financialOverview')} · {formatDate(new Date())} · Asia/Dhaka
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <SegmentedControl options={RANGES} value={String(rangeDays)} onChange={(value) => setRangeDays(Number(value))} />
+                    <SegmentedControl options={RANGES.map((r) => ({ label: t(r.key), value: r.value }))} value={String(rangeDays)} onChange={(value) => setRangeDays(Number(value))} />
                     <Button icon="plus" onClick={() => navigate('/billing/new')}>
-                        New booking
+                        {t('invoices.newBooking')}
                     </Button>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                <StatCard label="Collected today" value={money(data.today.collected)} icon="banknote" accent="accent" />
-                <StatCard label="Bookings today" value={data.today.invoiceCount} icon="clipboard-list" />
-                <StatCard label="New patients today" value={data.today.newPatients} icon="user-round-plus" accent="brand" />
+                <StatCard label={t('dash.collectedToday')} value={money(data.today.collected)} icon="banknote" accent="accent" />
+                <StatCard label={t('dash.bookingsTodayAdmin')} value={data.today.invoiceCount} icon="clipboard-list" />
+                <StatCard label={t('dash.newPatients')} value={data.today.newPatients} icon="user-round-plus" accent="brand" />
                 <StatCard
-                    label="Total outstanding"
+                    label={t('dash.totalOutstanding')}
                     value={money(data.outstanding.total)}
                     icon="triangle-alert"
                     accent="danger"
-                    caption={`across ${data.outstanding.invoiceCount} invoices`}
+                    caption={`${t('dash.acrossInvoices')} ${data.outstanding.invoiceCount} ${t('dash.invoicesWord')}`}
                 />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px,1fr))', gap: 'var(--gap-grid)' }}>
                 <Panel
-                    title="Cash collected"
-                    subtitle={`Last ${rangeLabel} · grouped on Asia/Dhaka calendar days`}
+                    title={t('dash.cashCollected')}
+                    subtitle={`${t('dash.last')} ${rangeLabel} · ${t('dash.groupedOn')}`}
                     action={
                         <span
                             style={{
@@ -198,7 +211,7 @@ const DashboardPage = () => {
                 >
                     {trend.length === 0 ? (
                         <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>
-                            No payments in this period.
+                            {t('jsx.noPaymentsPeriod')}
                         </p>
                     ) : (
                         <AreaTrendChart data={trend} height={214} valueFormat={(v) => compactMoney(Number(v))} />
@@ -224,20 +237,20 @@ const DashboardPage = () => {
                 </Panel>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
-                    <Panel title="Collection rate" subtitle="Cash collected against net billed, this period">
+                    <Panel title={t('dash.collectionRate')} subtitle={t('dash.collectionRateBody')}>
                         <GaugeMeter value={collectionRate} size={210} caption={`${money(data.period.collected)} of ${money(data.period.net)}`} />
                         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
                             <Button variant="secondary" size="sm" onClick={() => navigate('/reports/financial')}>
-                                Show details
+                                {t('dash.showDetails')}
                             </Button>
                         </div>
                     </Panel>
-                    <Panel title="Commission" subtitle="Accrued on net, never on gross">
+                    <Panel title={t('dash.commission')} subtitle={t('dash.commissionBody')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {[
-                                ['Accrued', money(data.commission.accrued), 'var(--text-heading)'],
-                                ['Paid out', money(data.commission.paid), 'var(--success-strong)'],
-                                ['Pending', money(data.commission.pending), 'var(--warning-strong)'],
+                                [t('dash.accrued'), money(data.commission.accrued), 'var(--text-heading)'],
+                                [t('dash.paidOut'), money(data.commission.paid), 'var(--success-strong)'],
+                                [t('dash.pending'), money(data.commission.pending), 'var(--warning-strong)'],
                             ].map(([label, value, color]) => (
                                 <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
@@ -249,17 +262,90 @@ const DashboardPage = () => {
                 </div>
             </div>
 
+            <Panel
+                title={t('dash.recentInvoices')}
+                action={
+                    <Link to="/billing" style={{ fontSize: 12, fontWeight: 600 }}>
+                        {t('dash.viewAll')}
+                    </Link>
+                }
+            >
+                <DataTable<Invoice & { id: string }>
+                    dense
+                    minWidth="52rem"
+                    empty={t('dash.noInvoices')}
+                    rows={(recentInvoices?.items ?? []).map((invoice) => ({ ...invoice, id: invoice._id }))}
+                    onRowClick={(row) => navigate(`/billing/${row._id}`)}
+                    columns={[
+                        {
+                            key: 'invoiceNumber',
+                            header: t('col.invoice'),
+                            render: (row) => (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+                                    {row.invoiceNumber}
+                                </span>
+                            ),
+                        },
+                        { key: 'visitDate', header: t('col.date'), render: (row) => formatDate(row.visitDate) },
+                        {
+                            key: 'patientInfo',
+                            header: t('col.patient'),
+                            render: (row) => (
+                                <div>
+                                    <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientInfo.name}</p>
+                                    <p style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+                                        {row.patientInfo.patientId} · {row.patientInfo.phone}
+                                    </p>
+                                </div>
+                            ),
+                        },
+                        {
+                            key: 'referrerInfo',
+                            header: t('col.referrer'),
+                            render: (row) =>
+                                row.referrerInfo ? (
+                                    row.referrerInfo.name
+                                ) : (
+                                    <span style={{ color: 'var(--text-faint)' }}>{t('col.walkIn')}</span>
+                                ),
+                        },
+                        { key: 'netPayable', header: t('col.payable'), align: 'right', render: (row) => money(row.netPayable) },
+                        {
+                            key: 'paidAmount',
+                            header: t('col.paid'),
+                            align: 'right',
+                            render: (row) => <span style={{ color: 'var(--success-strong)' }}>{money(row.paidAmount)}</span>,
+                        },
+                        {
+                            key: 'dueAmount',
+                            header: t('col.due'),
+                            align: 'right',
+                            render: (row) => (
+                                <span style={{ color: row.dueAmount > 0 ? 'var(--danger-strong)' : 'var(--text-faint)', fontWeight: 600 }}>
+                                    {money(row.dueAmount)}
+                                </span>
+                            ),
+                        },
+                        {
+                            key: 'paymentStatus',
+                            header: t('col.status'),
+                            render: (row) => <StatusBadge status={row.paymentStatus} />,
+                        },
+                    ]}
+                />
+            </Panel>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px,1fr))', gap: 'var(--gap-grid)' }}>
-                <Panel title="Top referrers" subtitle="Commission accrues on net, never on gross">
+                <Panel title={t('dash.topReferrers')} subtitle={t('dash.topReferrersBody')}>
                     <DataTable<ReferrerSummaryRow & { id: string }>
                         dense
                         minWidth="30rem"
-                        empty="No referred bookings in this period."
+                        empty={t('dash.noReferred')}
                         rows={data.byReferrer.slice(0, 8).map((row) => ({ ...row, id: row._id }))}
                         columns={[
                             {
                                 key: 'referrerName',
-                                header: 'Referrer',
+                                header: t('col.referrer'),
                                 render: (row) => (
                                     <div>
                                         <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.referrerName}</p>
@@ -267,11 +353,11 @@ const DashboardPage = () => {
                                     </div>
                                 ),
                             },
-                            { key: 'invoiceCount', header: 'Invoices', align: 'right' },
-                            { key: 'net', header: 'Net', align: 'right', render: (row) => money(row.net) },
+                            { key: 'invoiceCount', header: t('col.invoices'), align: 'right' },
+                            { key: 'net', header: t('col.net'), align: 'right', render: (row) => money(row.net) },
                             {
                                 key: 'commission',
-                                header: 'Commission',
+                                header: t('col.commission'),
                                 align: 'right',
                                 render: (row) => (
                                     <span style={{ color: 'var(--warning-strong)', fontWeight: 600 }}>{money(row.commission)}</span>
@@ -282,27 +368,27 @@ const DashboardPage = () => {
                 </Panel>
 
                 <Panel
-                    title="Recent activity"
+                    title={t('dash.recentActivity')}
                     action={
                         <Link to="/activity" style={{ fontSize: 12, fontWeight: 600 }}>
-                            View all
+                            {t('dash.viewAll')}
                         </Link>
                     }
                 >
-                    {data.recentActivity.length === 0 ? (
+                    {recentActivity.length === 0 ? (
                         <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>
-                            Nothing recorded yet.
+                            {t('dash.nothingRecorded')}
                         </p>
                     ) : (
                         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
-                            {data.recentActivity.map((entry, i) => (
+                            {recentActivity.map((entry, i) => (
                                 <li
                                     key={entry._id}
                                     style={{
                                         display: 'flex',
                                         gap: 12,
                                         padding: '11px 0',
-                                        borderBottom: i === data.recentActivity.length - 1 ? 'none' : '1px solid var(--surface-muted)',
+                                        borderBottom: i === recentActivity.length - 1 ? 'none' : '1px solid var(--surface-muted)',
                                     }}
                                 >
                                     <span
@@ -332,25 +418,6 @@ const DashboardPage = () => {
                     )}
                 </Panel>
             </div>
-
-            <Panel title="Collection by receptionist" subtitle="Cash taken at the front desk in this period">
-                <DataTable<UserCollectionRow & { id: string }>
-                    dense
-                    minWidth="24rem"
-                    empty="No cash collected in this period."
-                    rows={data.byReceptionist.map((row) => ({ ...row, id: row._id }))}
-                    columns={[
-                        { key: 'name', header: 'Staff' },
-                        { key: 'receipts', header: 'Receipts', align: 'right' },
-                        {
-                            key: 'collected',
-                            header: 'Collected',
-                            align: 'right',
-                            render: (row) => <span style={{ color: 'var(--success-strong)', fontWeight: 600 }}>{money(row.collected)}</span>,
-                        },
-                    ]}
-                />
-            </Panel>
         </>
     );
 };

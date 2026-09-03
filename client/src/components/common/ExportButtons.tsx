@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useLanguage';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
@@ -14,6 +15,7 @@ type ExportButtonsProps<T> = {
 
 /** PDF + Excel pair. Both libraries load on demand, so the busy state is real. */
 const ExportButtons = <T,>({ rows, ...options }: ExportButtonsProps<T>) => {
+    const t = useT();
     const [busy, setBusy] = useState<'pdf' | 'excel' | null>(null);
     const disabled = rows.length === 0 || busy !== null;
 
@@ -33,10 +35,10 @@ const ExportButtons = <T,>({ rows, ...options }: ExportButtonsProps<T>) => {
     return (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <Button variant="secondary" size="sm" icon="download" disabled={disabled} loading={busy === 'pdf'} onClick={() => run('pdf')}>
-                {busy === 'pdf' ? 'Building...' : 'PDF'}
+                {busy === 'pdf' ? t('ctrl.building') : t('ctrl.pdf')}
             </Button>
             <Button variant="secondary" size="sm" icon="download" disabled={disabled} loading={busy === 'excel'} onClick={() => run('excel')}>
-                {busy === 'excel' ? 'Building...' : 'Excel'}
+                {busy === 'excel' ? t('ctrl.building') : t('ctrl.excel')}
             </Button>
         </div>
     );

@@ -11,21 +11,24 @@ import GaugeMeter from '@/components/ui/GaugeMeter';
 import Panel from '@/components/ui/Panel';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { money } from '@/lib/format';
+import { useT } from '@/i18n/useLanguage';
 import { useGetCollectionByUserReportQuery, useGetFinancialSummaryQuery, useGetRevenueReportQuery } from '@/services/reportsApi';
 import type { UserCollectionRow } from '@/services/dashboardApi';
+import type { TranslationKey } from '@/i18n/translations';
 
 type GroupBy = 'daily' | 'monthly' | 'yearly';
 
-const GROUPS = [
-    { label: 'Daily', value: 'daily' },
-    { label: 'Monthly', value: 'monthly' },
-    { label: 'Yearly', value: 'yearly' },
+const GROUP_KEYS: { key: TranslationKey; value: GroupBy }[] = [
+    { key: 'ctrl.daily', value: 'daily' },
+    { key: 'ctrl.monthly', value: 'monthly' },
+    { key: 'ctrl.yearly', value: 'yearly' },
 ];
 
 const compactMoney = (value: number) => `৳${Math.round(value / 1000)}K`;
 
 const FinancialReportPage = () => {
     const [range, setRange] = useState(rangeForDays(29));
+    const t = useT();
     const [groupBy, setGroupBy] = useState<GroupBy>('daily');
 
     const summaryQuery = useGetFinancialSummaryQuery(range);
@@ -43,19 +46,19 @@ const FinancialReportPage = () => {
         <>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Financial summary</h2>
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('rep.financialTitle')}</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)', maxWidth: 620 }}>
-                        Billed and collected are separate: an invoice raised today may be collected next week.
+                        {t('rep.financialSub')}
                     </p>
                 </div>
                 <ExportButtons
-                    title="Revenue"
+                    title={t('rep.revenue')}
                     subtitle={`${range.startDate} to ${range.endDate}`}
                     filename={`revenue-${range.startDate}-to-${range.endDate}`}
                     columns={[
                         { header: 'Period', accessor: (row: { _id: string }) => row._id },
                         { header: 'Collected (BDT)', accessor: (row: { collected: number }) => row.collected },
-                        { header: 'Receipts', accessor: (row: { receipts: number }) => row.receipts },
+                        { header: t('col.receipts'), accessor: (row: { receipts: number }) => row.receipts },
                     ]}
                     rows={series}
                 />
@@ -63,14 +66,14 @@ const FinancialReportPage = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <DateRangePicker value={range} onChange={setRange} />
-                <SegmentedControl options={GROUPS} value={groupBy} onChange={(value) => setGroupBy(value as GroupBy)} />
+                <SegmentedControl options={GROUP_KEYS.map((group) => ({ label: t(group.key), value: group.value }))} value={groupBy} onChange={(value) => setGroupBy(value as GroupBy)} />
             </div>
 
             {isLoading ? (
-                <Loader message="Building financial summary..." />
+                <Loader message={t('ld.financial')} />
             ) : isError || !summary ? (
                 <ErrorState
-                    title="Could not load the financial summary"
+                    title={t('err.financial')}
                     onRetry={() => {
                         summaryQuery.refetch();
                         revenueQuery.refetch();
@@ -79,38 +82,38 @@ const FinancialReportPage = () => {
             ) : (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                        <StatCard label="Cash collected" value={money(summary.cashCollected)} icon="banknote" accent="accent" />
+                        <StatCard label={t('dash.cashCollected')} value={money(summary.cashCollected)} icon="banknote" accent="accent" />
                         <StatCard
-                            label="Net billed"
+                            label={t('rep.netBilled')}
                             value={money(summary.netBilled)}
                             icon="receipt-text"
                             caption={`${summary.invoiceCount} invoices`}
                         />
-                        <StatCard label="Outstanding" value={money(summary.outstanding)} icon="triangle-alert" accent="danger" />
-                        <StatCard label="Commission accrued" value={money(summary.commissionAccrued)} icon="user-round-search" accent="warning" />
+                        <StatCard label={t('rep.outstanding')} value={money(summary.outstanding)} icon="triangle-alert" accent="danger" />
+                        <StatCard label={t('rep.commissionAccrued')} value={money(summary.commissionAccrued)} icon="user-round-search" accent="warning" />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                        <StatCard label="Gross billed" value={money(summary.grossBilled)} accent="neutral" />
+                        <StatCard label={t('rep.grossBilled')} value={money(summary.grossBilled)} accent="neutral" />
                         <StatCard
-                            label="Discounts given"
+                            label={t('rep.discountsGiven')}
                             value={money(summary.discountGiven)}
                             accent="neutral"
                             trend={{ value: summary.discountRate, isPositive: false, label: 'of gross' }}
                         />
-                        <StatCard label="Invoices" value={summary.invoiceCount} accent="neutral" />
+                        <StatCard label={t('rep.invoicesCount')} value={summary.invoiceCount} accent="neutral" />
                         <StatCard
-                            label="Net after commission"
-                            value={money(summary.netAfterCommission)}
-                            accent="neutral"
-                            trend={{ value: summary.collectionRate, isPositive: true, label: 'collected' }}
+                            label={t('rep.revenue')}
+                            value={money(summary.revenue)}
+                            accent="accent"
+                            caption={t('rep.revenueCaption')}
                         />
                     </div>
 
-                    <Panel title={`Cash collected, ${groupBy}`} subtitle="Grouped on Asia/Dhaka calendar days">
+                    <Panel title={`Cash collected, ${groupBy}`} subtitle={t('ttl.groupedDhaka')}>
                         {series.length === 0 ? (
                             <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>
-                                No payments in this period.
+                                {t('jsx.noPaymentsPeriod')}
                             </p>
                         ) : (
                             <AreaTrendChart
@@ -122,18 +125,18 @@ const FinancialReportPage = () => {
                     </Panel>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 'var(--gap-grid)' }}>
-                        <Panel title="Collection by receptionist">
+                        <Panel title={t('rep.collectionByStaff')}>
                             <DataTable<UserCollectionRow & { id: string }>
                                 dense
                                 minWidth="24rem"
-                                empty="No cash collected in this period."
+                                empty={t('empty.cash')}
                                 rows={collections.map((row) => ({ ...row, id: row._id }))}
                                 columns={[
                                     { key: 'name', header: 'Staff' },
-                                    { key: 'receipts', header: 'Receipts', align: 'right' },
+                                    { key: 'receipts', header: t('col.receipts'), align: 'right' },
                                     {
                                         key: 'collected',
-                                        header: 'Collected',
+                                        header: t('col.collected'),
                                         align: 'right',
                                         render: (row) => <span style={{ color: 'var(--success-strong)', fontWeight: 600 }}>{money(row.collected)}</span>,
                                     },
@@ -141,7 +144,7 @@ const FinancialReportPage = () => {
                             />
                         </Panel>
 
-                        <Panel title="Collection rate">
+                        <Panel title={t('dash.collectionRate')}>
                             <GaugeMeter value={summary.collectionRate} size={200} caption="of net billed, this period" />
                         </Panel>
                     </div>

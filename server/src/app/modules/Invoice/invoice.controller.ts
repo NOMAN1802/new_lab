@@ -130,6 +130,28 @@ const getReportDownloadUrl = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * Streams the report itself rather than a link to it, so the browser gets the
+ * content type and filename we recorded at upload instead of guessing from a
+ * storage URL. Not sendResponse(): this is the file, not a JSON envelope.
+ */
+const getReportFile = catchAsync(async (req, res) => {
+  const { body, mimeType, fileName } = await InvoiceServices.getReportFile(
+    req.params.id,
+    req.params.itemId
+  );
+
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Length', body.length);
+  res.setHeader(
+    'Content-Disposition',
+    `inline; filename="${encodeURIComponent(fileName)}"`
+  );
+  // A medical record has no business in a shared cache.
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(body);
+});
+
 export const InvoiceControllers = {
   createInvoice,
   getInvoices,
@@ -140,4 +162,5 @@ export const InvoiceControllers = {
   uploadItemReport,
   markReportDelivered,
   getReportDownloadUrl,
+  getReportFile,
 };

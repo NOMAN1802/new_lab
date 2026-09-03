@@ -8,25 +8,37 @@ const toPlain = (doc: unknown): TPlain =>
     ? (doc as { toObject: () => TPlain }).toObject()
     : { ...(doc as TPlain) };
 
+/** What the centre owes the referring doctor — an Admin-only matter. */
+const COMMISSION_FIELDS = [
+  'commissionType',
+  'commissionValue',
+  'commissionAmount',
+  'commissionStatus',
+  'commissionPayout',
+] as const;
+
 /**
- * Per-invoice figures are returned in full to both roles.
+ * The patient's side of an invoice is returned in full to both roles: a
+ * receptionist books, collects and prints, so gross, discount, net, paid and
+ * due all come through.
  *
- * The centre prints the commission line on the invoice itself, and a
- * receptionist is the one printing it, so nothing on an individual invoice is
- * withheld from them — gross, discount, net and commission all come through.
- *
- * The §4.2 restriction is enforced where it still applies: a receptionist gets
- * no aggregate revenue, discount or commission figures. Their dashboard payload
- * carries none, and every financial report and the commission-payout module
- * are admin-only at the route layer.
- *
- * The one thing still stripped is the referrer's *standing* rate card, which
- * is a commercial term across all their patients rather than a figure on this
+ * The doctor's side does not. Commission is arranged and settled by an Admin
+ * alone, from the Doctor's Commission screen, so every commission figure is
+ * stripped here — along with the referrer's standing rate card, which is a
+ * commercial term across all their patients rather than a figure on this
  * invoice.
+ *
+ * The §4.2 restriction is enforced elsewhere for aggregates: a receptionist's
+ * dashboard payload carries no revenue totals, and every financial report and
+ * the commission-payout module are admin-only at the route layer.
  */
 export const serializeInvoice = (invoice: TInvoice, role: TUserRole): TPlain => {
   const plain = toPlain(invoice);
   if (role === 'admin') return plain;
+
+  for (const field of COMMISSION_FIELDS) {
+    delete plain[field];
+  }
 
   const referrer = plain.referrer as TPlain | undefined;
   if (referrer && typeof referrer === 'object') {

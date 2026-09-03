@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties } from 'react';
 import Icon from '@/components/ui/Icon';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -6,11 +7,11 @@ import { rangeForDays } from '@/lib/dateRange';
 import type { DateRange } from '@/lib/dateRange';
 
 const PRESETS = [
-    { label: 'Today', value: '0' },
-    { label: '7 days', value: '6' },
-    { label: '30 days', value: '29' },
-    { label: '90 days', value: '89' },
-    { label: '1 year', value: '364' },
+    { key: 'ctrl.today' as const, value: '0' },
+    { key: 'ctrl.7days' as const, value: '6' },
+    { key: 'ctrl.30days' as const, value: '29' },
+    { key: 'ctrl.90days' as const, value: '89' },
+    { key: 'ctrl.1year' as const, value: '364' },
 ];
 
 const dateBox: CSSProperties = {
@@ -43,6 +44,7 @@ type DateRangePickerProps = {
 
 /** Preset row plus an explicit from/to pair. Every report screen starts with this. */
 const DateRangePicker = ({ value, onChange }: DateRangePickerProps) => {
+    const t = useT();
     const today = toDhakaDateInput();
 
     // The active preset is derived, not stored: whichever preset reproduces the
@@ -55,25 +57,25 @@ const DateRangePicker = ({ value, onChange }: DateRangePickerProps) => {
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-            <SegmentedControl options={PRESETS} value={activePreset} onChange={(days) => onChange(rangeForDays(Number(days)))} />
+            <SegmentedControl options={PRESETS.map((preset) => ({ label: t(preset.key), value: preset.value }))} value={activePreset} onChange={(days) => onChange(rangeForDays(Number(days)))} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'nowrap' }}>
                 <span style={dateBox}>
                     <Icon name="calendar" size={16} color="var(--text-faint)" />
                     <input
                         type="date"
-                        aria-label="From date"
+                        aria-label={t('ctrl.fromDate')}
                         value={value.startDate}
                         max={value.endDate || today}
                         onChange={(e) => onChange({ ...value, startDate: e.target.value })}
                         style={bareInput}
                     />
                 </span>
-                <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-faint)' }}>to</span>
+                <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-faint)' }}>{t('ctrl.to')}</span>
                 <span style={dateBox}>
                     <Icon name="calendar" size={16} color="var(--text-faint)" />
                     <input
                         type="date"
-                        aria-label="To date"
+                        aria-label={t('ctrl.toDate')}
                         value={value.endDate}
                         min={value.startDate}
                         max={today}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties, ChangeEvent, ReactNode } from 'react';
 
 type TextareaProps = {
@@ -18,6 +19,7 @@ type TextareaProps = {
 
 /** Notes and address fields. Same chrome as TextField. */
 const Textarea = ({ label, value, onChange, placeholder, rows = 3, hint, error, optional = false, id, style, ...rest }: TextareaProps) => {
+    const t = useT();
     const [focus, setFocus] = useState(false);
     const areaId = id || (typeof label === 'string' ? `t-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
 
@@ -26,7 +28,7 @@ const Textarea = ({ label, value, onChange, placeholder, rows = 3, hint, error, 
             {label && (
                 <label htmlFor={areaId} style={{ font: 'var(--type-label)', color: 'var(--text-body)', marginBottom: '2px' }}>
                     {label}
-                    {optional && <span style={{ color: 'var(--text-faint)', fontWeight: 'var(--fw-regular)' as CSSProperties['fontWeight'] }}> (optional)</span>}
+                    {optional && <span style={{ color: 'var(--text-faint)', fontWeight: 'var(--fw-regular)' as CSSProperties['fontWeight'] }}> {t('ctrl.optionalSuffix')}</span>}
                 </label>
             )}
             <textarea

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties, ReactNode } from 'react';
 import Icon from './Icon';
 
@@ -14,6 +15,7 @@ type ModalProps = {
 
 /** Centred dialog over a dimmed, blurred page. The app's only overlay. */
 const Modal = ({ open = false, onClose, title, subtitle, width = 640, footer, children }: ModalProps) => {
+    const t = useT();
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e: KeyboardEvent) => {
@@ -46,7 +48,7 @@ const Modal = ({ open = false, onClose, title, subtitle, width = 640, footer, ch
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: 'var(--space-4)',
-                background: 'rgba(15,23,42,.42)',
+                background: 'rgba(38,33,25,.48)',
                 backdropFilter: 'blur(3px)',
             }}
         >
@@ -82,7 +84,7 @@ const Modal = ({ open = false, onClose, title, subtitle, width = 640, footer, ch
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
+                                aria-label={t('ctrl.close')}
                                 style={{
                                     display: 'flex',
                                     border: 0,

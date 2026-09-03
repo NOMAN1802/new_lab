@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { TranslationKey } from '@/i18n/translations';
 import DateRangePicker from '@/components/common/DateRangePicker';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
@@ -7,6 +8,7 @@ import ActionTag from '@/components/ui/ActionTag';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Pagination from '@/components/ui/Pagination';
+import { useT } from '@/i18n/useLanguage';
 import Panel from '@/components/ui/Panel';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import TextField from '@/components/ui/TextField';
@@ -15,12 +17,12 @@ import { formatDateTime } from '@/lib/format';
 import { useGetActivityByUserQuery, useGetActivityQuery } from '@/services/activityApi';
 import type { ActivityEntry } from '@/services/activityApi';
 
-const ACTION_FILTERS = [
-    { label: 'Everything', value: '' },
-    { label: 'Payments', value: 'payment.recorded' },
-    { label: 'Voids', value: 'payment.voided' },
-    { label: 'Cancellations', value: 'invoice.cancelled' },
-    { label: 'Price changes', value: 'test.price_changed' },
+const ACTION_FILTERS: { key: TranslationKey; value: string }[] = [
+    { key: 'act.everything', value: '' },
+    { key: 'act.payments', value: 'payment.recorded' },
+    { key: 'act.voids', value: 'payment.voided' },
+    { key: 'act.cancellations', value: 'invoice.cancelled' },
+    { key: 'act.priceChanges', value: 'test.price_changed' },
 ];
 
 const PAGE_SIZE = 30;
@@ -30,6 +32,7 @@ const ActivityPage = () => {
     const [search, setSearch] = useState('');
     const [action, setAction] = useState('');
     const [page, setPage] = useState(1);
+    const t = useT();
 
     const { data, isLoading, isFetching, isError, refetch } = useGetActivityQuery({
         ...range,
@@ -53,9 +56,9 @@ const ActivityPage = () => {
     return (
         <>
             <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>User activity</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('act.title')}</h2>
                 <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                    Who did what, and when. Covers money, patient records, prices and access.
+                    {t('act.subtitle')}
                 </p>
             </div>
 
@@ -83,34 +86,34 @@ const ActivityPage = () => {
                         type="search"
                         value={search}
                         onChange={(e) => resetTo(() => setSearch(e.target.value))}
-                        placeholder="Search by staff name, invoice number or description"
+                        placeholder={t('ph.searchActivity')}
                     />
                 </div>
-                <SegmentedControl options={ACTION_FILTERS} value={action} onChange={(value) => resetTo(() => setAction(value))} />
+                <SegmentedControl options={ACTION_FILTERS.map((filter) => ({ label: t(filter.key), value: filter.value }))} value={action} onChange={(value) => resetTo(() => setAction(value))} />
             </div>
 
             {isLoading ? (
-                <Loader message="Loading activity..." />
+                <Loader message={t('ld.activity')} />
             ) : isError ? (
-                <ErrorState title="Could not load activity" onRetry={refetch} />
+                <ErrorState title={t('err.activity')} onRetry={refetch} />
             ) : (
                 <>
                     <Panel padding="0">
                         <DataTable<ActivityEntry & { id: string }>
                             minWidth="46rem"
-                            empty="No activity recorded in this period."
+                            empty={t('empty.activity')}
                             rows={entries.map((entry) => ({ ...entry, id: entry._id }))}
                             columns={[
                                 {
                                     key: 'at',
-                                    header: 'When',
+                                    header: t('col.when'),
                                     render: (entry) => (
                                         <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{formatDateTime(entry.at)}</span>
                                     ),
                                 },
                                 {
                                     key: 'actorName',
-                                    header: 'Who',
+                                    header: t('col.who'),
                                     render: (entry) => (
                                         <div>
                                             <p style={{ fontWeight: 600, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>{entry.actorName}</p>
@@ -120,8 +123,8 @@ const ActivityPage = () => {
                                         </div>
                                     ),
                                 },
-                                { key: 'action', header: 'Action', render: (entry) => <ActionTag action={entry.action} /> },
-                                { key: 'summary', header: 'Detail' },
+                                { key: 'action', header: t('col.action'), render: (entry) => <ActionTag action={entry.action} /> },
+                                { key: 'summary', header: t('col.detail') },
                             ]}
                         />
                     </Panel>
@@ -129,7 +132,7 @@ const ActivityPage = () => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
                             <Icon name="lock" size={14} />
-                            The activity log is append-only — entries cannot be edited or deleted.
+                            {t('jsx.activityNote')}
                         </span>
                         <Pagination
                             page={page}

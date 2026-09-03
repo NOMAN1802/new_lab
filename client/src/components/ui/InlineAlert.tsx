@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { useT } from '@/i18n/useLanguage';
 import Icon from './Icon';
 import type { IconName } from './Icon';
 
@@ -19,6 +20,7 @@ type InlineAlertProps = {
 
 /** Result of the action the user just took, shown above the form it belongs to. */
 const InlineAlert = ({ tone = 'info', children, icon, onDismiss, style }: InlineAlertProps) => {
+    const t = useT();
     const [bg, border, fg, fallbackIcon] = TONES[tone] || TONES.info;
     return (
         <div
@@ -50,7 +52,7 @@ const InlineAlert = ({ tone = 'info', children, icon, onDismiss, style }: Inline
                 <button
                     type="button"
                     onClick={onDismiss}
-                    aria-label="Dismiss"
+                    aria-label={t('fld.dismiss')}
                     style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'inherit', opacity: 0.6, display: 'flex' }}
                 >
                     <Icon name="x" size={16} />

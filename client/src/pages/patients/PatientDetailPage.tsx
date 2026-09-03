@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useT } from '@/i18n/useLanguage';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import StatCard from '@/components/common/StatCard';
@@ -16,15 +17,16 @@ const REPORT_DOT: Record<string, string> = {
 };
 
 const PatientDetailPage = () => {
+    const t = useT();
     const { id } = useParams();
     const { isAdmin } = useRole();
     const navigate = useNavigate();
 
     const { data, isLoading, isError, refetch } = useGetPatientHistoryQuery(id!);
 
-    if (isLoading) return <Loader message="Loading visit history..." />;
+    if (isLoading) return <Loader message={t('ld.visitHistory')} />;
     if (isError || !data) {
-        return <ErrorState title="Could not load patient" description="This patient's history is unavailable." onRetry={refetch} />;
+        return <ErrorState title={t('err.patient')} description={t('err.historyGone')} onRetry={refetch} />;
     }
 
     const { patient, invoices } = data;
@@ -65,26 +67,26 @@ const PatientDetailPage = () => {
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <Button variant="secondary" icon="pencil" onClick={() => navigate(`/patients/${patient._id}/edit`)}>
-                        Edit
+                        {t('ctrl.edit')}
                     </Button>
                     <Button icon="plus" onClick={() => navigate(`/billing/new?patient=${patient._id}`)}>
-                        New visit
+                        {t('jsx.newVisit')}
                     </Button>
                 </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                <StatCard label="Visits" value={invoices.length} icon="clipboard-list" />
-                <StatCard label="Total paid" value={money(totals.paid)} icon="banknote" accent="accent" />
+                <StatCard label={t('fld.visits')} value={invoices.length} icon="clipboard-list" />
+                <StatCard label={t('fld.totalPaid')} value={money(totals.paid)} icon="banknote" accent="accent" />
                 <StatCard
-                    label="Outstanding"
+                    label={t('fld.outstanding')}
                     value={money(totals.due)}
                     icon="triangle-alert"
                     accent={totals.due > 0 ? 'danger' : 'neutral'}
                 />
             </div>
 
-            <Panel title="Visit history" subtitle={`${invoices.length} invoice${invoices.length === 1 ? '' : 's'} on file`}>
+            <Panel title={t('ttl.visitHistory')} subtitle={`${invoices.length} invoice${invoices.length === 1 ? '' : 's'} on file`}>
                 {invoices.length === 0 ? (
                     <p
                         style={{
@@ -96,7 +98,7 @@ const PatientDetailPage = () => {
                             color: 'var(--text-muted)',
                         }}
                     >
-                        No visits recorded for this patient yet.
+                        {t('jsx.noVisitsPatient')}
                     </p>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties } from 'react';
 import Button from '@/components/ui/Button';
 
@@ -10,11 +11,13 @@ type ErrorStateProps = {
 
 /** Query failure. Dashed rose box, plain-language title, one Retry. */
 const ErrorState = ({
-    title = 'Something went wrong',
-    description = 'Please try again in a moment.',
+    title,
+    description,
     onRetry,
     style,
-}: ErrorStateProps) => (
+}: ErrorStateProps) => {
+    const t = useT();
+    return (
     <div
         style={{
             border: '1px dashed var(--rose-100)',
@@ -33,17 +36,18 @@ const ErrorState = ({
                 color: 'var(--danger-strong)',
             }}
         >
-            {title}
+            {title ?? t('common.somethingWrong')}
         </p>
-        <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>{description}</p>
+        <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>{description ?? t('ctrl.retryAgain')}</p>
         {onRetry && (
             <div style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
                 <Button onClick={onRetry} icon="rotate-ccw">
-                    Retry
+                    {t('common.retry')}
                 </Button>
             </div>
         )}
     </div>
-);
+    );
+};
 
 export default ErrorState;

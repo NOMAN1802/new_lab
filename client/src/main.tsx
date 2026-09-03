@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { Toaster } from 'sonner';
 import './index.css';
 import App from './App';
+import { LanguageProvider } from '@/i18n/LanguageProvider';
 import { store } from './app/store';
 
 // Suppress React DevTools proxy.js errors (harmless extension errors)
@@ -24,10 +25,12 @@ console.error = (...args: unknown[]) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
-        <App />
-        <Toaster position="top-right" richColors />
-      </BrowserRouter>
+      <LanguageProvider>
+        <BrowserRouter>
+          <App />
+          <Toaster position="top-right" richColors />
+        </BrowserRouter>
+      </LanguageProvider>
     </Provider>
   </StrictMode>
 );

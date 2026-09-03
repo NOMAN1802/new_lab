@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import DetailRow from '@/components/ui/DetailRow';
 import PageHero from '@/components/ui/PageHero';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import RoleBadge from '@/components/ui/RoleBadge';
 import { useGetCurrentUserQuery } from '@/services/userApi';
 import { useAppSelector } from '@/hooks/store';
@@ -18,19 +19,20 @@ const ProfilePage = () => {
         skip: !accessToken || initializing,
     });
     const navigate = useNavigate();
+    const t = useT();
 
-    if (isLoading) return <Loader fullScreen message="Loading profile..." />;
+    if (isLoading) return <Loader fullScreen message={t('ld.profile')} />;
 
     if (isError || !user) {
-        return <ErrorState title="Unable to load profile" description="Check your network or try refreshing the page." onRetry={refetch} />;
+        return <ErrorState title={t('err.profile')} description={t('err.network')} onRetry={refetch} />;
     }
 
     return (
-        <div style={{ maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
             <PageHero
                 eyebrow="Account"
-                title="Profile"
-                description="View your account information and details."
+                title={t('prof.title')}
+                description={t('prof.subtitle')}
             />
 
             <Panel>
@@ -52,17 +54,17 @@ const ProfilePage = () => {
                             <RoleBadge role={user.role} />
                         </div>
                         <Button variant="secondary" icon="pencil" onClick={() => navigate('/settings')}>
-                            Edit profile
+                            {t('prof.edit')}
                         </Button>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 12 }}>
-                        <DetailRow icon="user-round" label="Full name" value={user.name} />
-                        <DetailRow icon="mail" label="Email address" value={user.email} />
-                        <DetailRow icon="phone" label="Mobile number" value={user.mobileNumber} />
-                        <DetailRow icon="shield-check" label="Account role" value={user.role} />
-                        <DetailRow icon="calendar" label="Member since" value={user.createdAt ? dayjs(user.createdAt).format('D MMM YYYY') : '—'} />
-                        <DetailRow icon="clock" label="Last updated" value={user.updatedAt ? dayjs(user.updatedAt).format('D MMM YYYY') : '—'} />
+                        <DetailRow icon="user-round" label={t('pform.fullName')} value={user.name} />
+                        <DetailRow icon="mail" label={t('fld.emailAddress')} value={user.email} />
+                        <DetailRow icon="phone" label={t('fld.mobileNumber')} value={user.mobileNumber} />
+                        <DetailRow icon="shield-check" label={t('fld.accountRole')} value={user.role} />
+                        <DetailRow icon="calendar" label={t('fld.memberSince')} value={user.createdAt ? dayjs(user.createdAt).format('D MMM YYYY') : '—'} />
+                        <DetailRow icon="clock" label={t('fld.lastUpdated')} value={user.updatedAt ? dayjs(user.updatedAt).format('D MMM YYYY') : '—'} />
                     </div>
                 </div>
             </Panel>

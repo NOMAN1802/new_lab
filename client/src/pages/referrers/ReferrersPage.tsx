@@ -9,6 +9,7 @@ import Checkbox from '@/components/ui/Checkbox';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import TextField from '@/components/ui/TextField';
 import { apiErrorMessage, commissionBasis, percent } from '@/lib/format';
@@ -35,16 +36,20 @@ const EMPTY: ReferrerInput = {
 };
 
 const rowAction: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 30,
+    height: 30,
     border: 0,
     background: 'transparent',
-    padding: 0,
+    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 12,
-    fontWeight: 600,
+    transition: 'var(--transition-control)',
 };
 
 const ReferrersPage = () => {
+    const t = useT();
     const [search, setSearch] = useState('');
     const [isFormOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Referrer | null>(null);
@@ -141,11 +146,11 @@ const ReferrersPage = () => {
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Referrers (RFE)</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                        Default rates pre-fill at booking and are frozen onto each invoice.
+                        {t('jsx.defaultRatesNote')}
                     </p>
                 </div>
                 <Button icon="plus" onClick={startCreate}>
-                    Add referrer
+                    {t('jsx.addReferrer')}
                 </Button>
             </div>
 
@@ -155,7 +160,7 @@ const ReferrersPage = () => {
                     type="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search by name, code or hospital"
+                    placeholder={t('ph.searchReferrer')}
                 />
             </div>
 
@@ -164,39 +169,39 @@ const ReferrersPage = () => {
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
                             <TextField
-                                label="Code"
+                                label={t('fld.code')}
                                 value={form.referrerCode}
                                 onChange={(e) => setForm({ ...form, referrerCode: e.target.value })}
                                 placeholder="RFE-001"
                             />
                             <TextField
-                                label="Name"
+                                label={t('col.name')}
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 placeholder="Dr. Rakesh Shaha"
                             />
                             <TextField
-                                label="Designation"
+                                label={t('fld.designation')}
                                 optional
                                 value={form.designation}
                                 onChange={(e) => setForm({ ...form, designation: e.target.value })}
                                 placeholder="MBBS, FCPS"
                             />
                             <TextField
-                                label="Hospital / clinic"
+                                label={t('fld.hospital')}
                                 optional
                                 value={form.hospital}
                                 onChange={(e) => setForm({ ...form, hospital: e.target.value })}
                             />
                             <TextField
-                                label="Phone"
+                                label={t('col.phone')}
                                 type="tel"
                                 value={form.phone}
                                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                                 placeholder="01XXXXXXXXX"
                             />
                             <TextField
-                                label="Address"
+                                label={t('fld.address')}
                                 optional
                                 value={form.address}
                                 onChange={(e) => setForm({ ...form, address: e.target.value })}
@@ -214,14 +219,14 @@ const ReferrersPage = () => {
                             }}
                         >
                             <TextField
-                                label="Default patient discount (%)"
+                                label={t('fld.defaultDiscount')}
                                 type="number"
                                 min={0}
                                 max={100}
                                 step="0.01"
                                 value={form.defaultDiscountPercent ?? 0}
                                 onChange={(e) => setForm({ ...form, defaultDiscountPercent: Number(e.target.value) })}
-                                hint="Discount taken off the patient's gross bill."
+                                hint={t('hint.discount')}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 <span style={{ font: 'var(--type-label)', color: 'var(--text-body)' }}>Default commission</span>
@@ -239,21 +244,21 @@ const ReferrersPage = () => {
                                     step="0.01"
                                     value={form.defaultCommissionValue ?? 0}
                                     onChange={(e) => setForm({ ...form, defaultCommissionValue: Number(e.target.value) })}
-                                    hint="What the centre pays this referrer. Can be overridden on any individual invoice."
+                                    hint={t('hint.commissionRate')}
                                 />
                             </div>
                         </div>
 
                         <Checkbox
                             accent="brand"
-                            label="Available to select at booking"
+                            label={t('fld.availableSelect')}
                             checked={form.isActive}
                             onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                         />
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                             <Button variant="secondary" onClick={closeForm}>
-                                Cancel
+                                {t('ctrl.cancel')}
                             </Button>
                             <Button type="submit" loading={isSaving}>
                                 {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add referrer'}
@@ -263,7 +268,7 @@ const ReferrersPage = () => {
                         {editing && (
                             <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
                                 <Icon name="info" size={14} />
-                                Changing a rate affects future bookings only — existing invoices keep their original rates.
+                                {t('jsx.rateChangeNote')}
                             </p>
                         )}
                     </form>
@@ -271,9 +276,9 @@ const ReferrersPage = () => {
             )}
 
             {isLoading ? (
-                <Loader message="Loading referrers..." />
+                <Loader message={t('ld.referrers')} />
             ) : isError ? (
-                <ErrorState title="Could not load referrers" onRetry={refetch} />
+                <ErrorState title={t('err.referrers')} onRetry={refetch} />
             ) : (
                 <>
                     <Panel padding="0">
@@ -284,7 +289,7 @@ const ReferrersPage = () => {
                             columns={[
                                 {
                                     key: 'referrerCode',
-                                    header: 'Code',
+                                    header: t('col.code'),
                                     mono: true,
                                     render: (referrer) => (
                                         <span style={{ fontWeight: 600, color: 'var(--brand)', opacity: referrer.isActive ? 1 : 0.5 }}>
@@ -294,7 +299,7 @@ const ReferrersPage = () => {
                                 },
                                 {
                                     key: 'name',
-                                    header: 'Referrer',
+                                    header: t('col.referrer'),
                                     render: (referrer) => (
                                         <div style={{ opacity: referrer.isActive ? 1 : 0.5 }}>
                                             <p style={{ fontWeight: 600, color: 'var(--text-heading)', whiteSpace: 'nowrap' }}>{referrer.name}</p>
@@ -311,7 +316,7 @@ const ReferrersPage = () => {
                                 },
                                 {
                                     key: 'phone',
-                                    header: 'Phone',
+                                    header: t('col.phone'),
                                     render: (referrer) => (
                                         <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{referrer.phone}</span>
                                     ),
@@ -326,7 +331,7 @@ const ReferrersPage = () => {
                                 },
                                 {
                                     key: 'commission',
-                                    header: 'Commission',
+                                    header: t('col.commission'),
                                     align: 'right',
                                     render: (referrer) => (
                                         <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
@@ -334,25 +339,35 @@ const ReferrersPage = () => {
                                         </span>
                                     ),
                                 },
-                                { key: 'status', header: 'Status', render: (referrer) => <StatusBadge status={referrer.isActive ? 'active' : 'inactive'} /> },
+                                { key: 'status', header: t('col.status'), render: (referrer) => <StatusBadge status={referrer.isActive ? 'active' : 'inactive'} /> },
                                 {
                                     key: 'actions',
-                                    header: 'Actions',
+                                    header: t('col.actions'),
                                     align: 'right',
                                     render: (referrer) => (
-                                        <span style={{ display: 'inline-flex', gap: 12, fontSize: 12, fontWeight: 600 }}>
-                                            <Link to={`/commission?referrer=${referrer._id}`} style={{ color: 'var(--success-strong)' }}>
-                                                Commission
+                                        <span style={{ display: 'inline-flex', gap: 4 }}>
+                                            <Link
+                                                to={`/commission?referrer=${referrer._id}`}
+                                                aria-label={`Commission for ${referrer.name}`}
+                                                style={{ ...rowAction, color: 'var(--success-strong)' }}
+                                            >
+                                                <Icon name="banknote" size={16} />
                                             </Link>
-                                            <button type="button" onClick={() => startEdit(referrer)} style={{ ...rowAction, color: 'var(--brand)' }}>
-                                                Edit
+                                            <button
+                                                type="button"
+                                                aria-label={`Edit ${referrer.name}`}
+                                                onClick={() => startEdit(referrer)}
+                                                style={{ ...rowAction, color: 'var(--brand)' }}
+                                            >
+                                                <Icon name="pencil" size={16} />
                                             </button>
                                             <button
                                                 type="button"
+                                                aria-label={`Deactivate ${referrer.name}`}
                                                 onClick={() => handleDelete(referrer)}
                                                 style={{ ...rowAction, color: 'var(--danger-strong)' }}
                                             >
-                                                Deactivate
+                                                <Icon name="power-off" size={16} />
                                             </button>
                                         </span>
                                     ),
@@ -363,7 +378,7 @@ const ReferrersPage = () => {
 
                     <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
                         <Icon name="info" size={14} />
-                        Deactivating keeps past invoices and any unpaid commission on record.
+                        {t('jsx.deactivateNote')}
                     </p>
                 </>
             )}

@@ -4,6 +4,9 @@ import { Dialog, Transition } from '@headlessui/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/hooks/store';
 import { useRole } from '@/hooks/useRole';
+import { useT } from '@/i18n/useLanguage';
+import type { TranslationKey } from '@/i18n/translations';
+import { useUnpaidInvoices } from '@/hooks/useUnpaidInvoices';
 import { logout } from '@/features/auth/authSlice';
 import { CENTRE } from '@/lib/centre';
 import type { UserRole } from '@/lib/token';
@@ -12,10 +15,10 @@ import type { IconName } from '@/components/ui/Icon';
 import Button from '@/components/ui/Button';
 import LogoMark from '@/components/ui/LogoMark';
 
-type NavChild = { name: string; to: string; roles?: UserRole[] };
+type NavChild = { key: TranslationKey; to: string; roles?: UserRole[] };
 
 type NavItem = {
-    name: string;
+    key: TranslationKey;
     to: string;
     icon: IconName;
     /** Omit to show for every role. */
@@ -24,42 +27,43 @@ type NavItem = {
 };
 
 const NAVIGATION: NavItem[] = [
-    { name: 'Dashboard', to: '/', icon: 'layout-dashboard' },
-    { name: 'Patients', to: '/patients', icon: 'users' },
+    { key: 'nav.dashboard', to: '/', icon: 'layout-dashboard' },
+    { key: 'nav.patients', to: '/patients', icon: 'users' },
     {
-        name: 'Billing',
+        key: 'nav.billing',
         to: '/billing',
         icon: 'credit-card',
         children: [
-            { name: 'New booking', to: '/billing/new' },
-            { name: 'All invoices', to: '/billing' },
+            { key: 'nav.newBooking', to: '/billing/new' },
+            { key: 'nav.allInvoices', to: '/billing' },
         ],
     },
+    { key: 'nav.reportDelivery', to: '/patient-reports', icon: 'file-text' },
     {
-        name: 'Catalogue',
+        key: 'nav.catalogue',
         to: '/tests',
         icon: 'flask-conical',
         children: [
-            { name: 'Tests', to: '/tests' },
-            { name: 'Departments', to: '/departments', roles: ['admin'] },
+            { key: 'nav.tests', to: '/tests' },
+            { key: 'nav.departments', to: '/departments', roles: ['admin'] },
         ],
     },
-    { name: 'Referrers', to: '/referrers', icon: 'user-round-search', roles: ['admin'] },
-    { name: 'Commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
+    { key: 'nav.referrers', to: '/referrers', icon: 'user-round-search', roles: ['admin'] },
+    { key: 'nav.commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
     {
-        name: 'Reports',
+        key: 'nav.reports',
         to: '/reports/patients',
         icon: 'chart-column',
         children: [
-            { name: 'Patient report', to: '/reports/patients' },
-            { name: 'Financial summary', to: '/reports/financial', roles: ['admin'] },
-            { name: 'Referral & commission', to: '/reports/commission', roles: ['admin'] },
-            { name: 'Outstanding payments', to: '/reports/dues', roles: ['admin'] },
+            { key: 'nav.patientReport', to: '/reports/patients' },
+            { key: 'nav.financialSummary', to: '/reports/financial', roles: ['admin'] },
+            { key: 'nav.referralCommission', to: '/reports/commission', roles: ['admin'] },
+            { key: 'nav.outstandingPayments', to: '/reports/dues', roles: ['admin'] },
         ],
     },
-    { name: 'Users', to: '/users', icon: 'shield-check', roles: ['admin'] },
-    { name: 'Activity', to: '/activity', icon: 'clock', roles: ['admin'] },
-    { name: 'Settings', to: '/settings', icon: 'settings', roles: ['admin'] },
+    { key: 'nav.users', to: '/users', icon: 'shield-check', roles: ['admin'] },
+    { key: 'nav.activity', to: '/activity', icon: 'clock', roles: ['admin'] },
+    { key: 'nav.settings', to: '/settings', icon: 'settings', roles: ['admin'] },
 ];
 
 const visibleTo = (role: UserRole | undefined, roles?: UserRole[]) => !roles || (role !== undefined && roles.includes(role));
@@ -71,10 +75,12 @@ type ItemProps = {
     collapsed?: boolean;
     indent?: boolean;
     hasChildren?: boolean;
+    /** Rendered as a pill on the right, e.g. the unpaid-invoice count. */
+    count?: number;
     onClick: () => void;
 };
 
-const Item = ({ name, icon, active, collapsed = false, indent = false, hasChildren = false, onClick }: ItemProps) => {
+const Item = ({ name, icon, active, collapsed = false, indent = false, hasChildren = false, count, onClick }: ItemProps) => {
     const [hover, setHover] = useState(false);
 
     return (
@@ -119,12 +125,28 @@ const Item = ({ name, icon, active, collapsed = false, indent = false, hasChildr
             )}
             {icon && <Icon name={icon} size={18} strokeWidth={active ? 2 : 1.75} />}
             {!collapsed && <span style={{ flex: 1 }}>{name}</span>}
+            {!collapsed && count !== undefined && count > 0 && (
+                <span
+                    style={{
+                        padding: '1px 8px',
+                        borderRadius: 'var(--radius-pill)',
+                        background: active ? 'rgba(255,255,255,.6)' : 'var(--surface-sunken)',
+                        color: 'var(--text-muted)',
+                        fontSize: 'var(--text-11)',
+                        fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
+                    }}
+                >
+                    {count > 99 ? '99+' : count}
+                </span>
+            )}
             {!collapsed && hasChildren && <Icon name="chevron-down" size={15} />}
         </button>
     );
 };
 
-const Brand = ({ collapsed = false }: { collapsed?: boolean }) => (
+const Brand = ({ collapsed = false }: { collapsed?: boolean }) => {
+    const t = useT();
+    return (
     <div
         style={{
             display: 'flex',
@@ -158,14 +180,17 @@ const Brand = ({ collapsed = false }: { collapsed?: boolean }) => (
                         color: 'var(--text-faint)',
                     }}
                 >
-                    Billing &amp; Management
+                    {t('shell.subtitle')}
                 </p>
             </div>
         )}
     </div>
-);
+    );
+};
 
-const HelpCard = () => (
+const HelpCard = () => {
+    const t = useT();
+    return (
     <div
         style={{
             background: 'var(--brand)',
@@ -190,12 +215,35 @@ const HelpCard = () => (
         >
             <Icon name="life-buoy" size={16} />
         </span>
-        <p style={{ fontSize: 13, fontWeight: 700 }}>Need a hand?</p>
+        <p style={{ fontSize: 13, fontWeight: 700 }}>{t('shell.needHand')}</p>
         <p style={{ fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.8)' }}>
-            Billing rules, discounts and Dhaka-day reports explained in the handbook.
+            {t('shell.helpBody')}
         </p>
+        {CENTRE.handbookUrl && (
+            <a
+                href={CENTRE.handbookUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 4,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--paper)',
+                    color: 'var(--brand-dark)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                }}
+            >
+                {t('shell.openHandbook')}
+            </a>
+        )}
     </div>
-);
+    );
+};
 
 type NavListProps = {
     collapsed?: boolean;
@@ -206,9 +254,27 @@ const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { role } = useRole();
-    const [openGroup, setOpenGroup] = useState<string | null>(null);
+    const { total: unpaidCount } = useUnpaidInvoices();
 
     const items = NAVIGATION.filter((item) => visibleTo(role, item.roles));
+
+    /** The group owning the page you are on, if any. */
+    const routeGroup = items.find((item) => item.children?.some((child) => child.to === location.pathname))?.key ?? null;
+
+    /**
+     * Which group is open is the user's to decide, so this is the only source
+     * of truth. Arriving on a page opens its group, but from then on a click
+     * wins — otherwise a group could never be collapsed while you were looking
+     * at one of its own pages.
+     */
+    const t = useT();
+    const [openGroup, setOpenGroup] = useState<string | null>(routeGroup);
+    const [openedFor, setOpenedFor] = useState(location.pathname);
+
+    if (openedFor !== location.pathname) {
+        setOpenedFor(location.pathname);
+        setOpenGroup(routeGroup);
+    }
 
     const go = (to: string) => {
         navigate(to);
@@ -229,18 +295,19 @@ const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
             {items.map((item) => {
                 const children = item.children?.filter((child) => visibleTo(role, child.roles));
                 const childActive = Boolean(children?.some((child) => child.to === location.pathname));
-                const isOpen = !collapsed && Boolean(children?.length) && (openGroup === item.name || childActive);
+                const isOpen = !collapsed && Boolean(children?.length) && openGroup === item.key;
                 const active = item.to === location.pathname || (childActive && !isOpen);
 
                 return (
-                    <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <div key={item.key} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <Item
-                            name={item.name}
+                            name={t(item.key)}
                             icon={item.icon}
                             active={active}
                             collapsed={collapsed}
+                            count={item.key === 'nav.billing' ? unpaidCount : undefined}
                             hasChildren={Boolean(children?.length)}
-                            onClick={() => (children?.length && !collapsed ? setOpenGroup(isOpen ? null : item.name) : go(item.to))}
+                            onClick={() => (children?.length && !collapsed ? setOpenGroup(isOpen ? null : item.key) : go(item.to))}
                         />
                         {isOpen && children && (
                             <div
@@ -256,7 +323,7 @@ const NavList = ({ collapsed = false, onNavigate }: NavListProps) => {
                                 {children.map((child) => (
                                     <Item
                                         key={child.to}
-                                        name={child.name}
+                                        name={t(child.key)}
                                         active={child.to === location.pathname}
                                         indent
                                         onClick={() => go(child.to)}
@@ -277,6 +344,7 @@ type SidebarProps = {
 };
 
 const Sidebar = ({ open, onClose }: SidebarProps) => {
+    const t = useT();
     const [collapsed, setCollapsed] = useState(false);
     const dispatch = useAppDispatch();
 
@@ -316,14 +384,14 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                         onClick={signOut}
                         style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
                     >
-                        {!collapsed && 'Sign out'}
+                        {!collapsed && t('shell.signOut')}
                     </Button>
                     <Button
                         variant="secondary"
                         size="sm"
                         icon={collapsed ? 'chevron-right' : 'chevron-left'}
                         block
-                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        aria-label={collapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')}
                         onClick={() => setCollapsed((value) => !value)}
                     />
                 </div>
@@ -341,7 +409,7 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                         leaveFrom="opacity-100"
                         leaveTo="opacity-0"
                     >
-                        <div className="fixed inset-0" style={{ background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(3px)' }} />
+                        <div className="fixed inset-0" style={{ background: 'rgba(38,33,25,.48)', backdropFilter: 'blur(3px)' }} />
                     </Transition.Child>
 
                     <Transition.Child
@@ -362,7 +430,7 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    aria-label="Close menu"
+                                    aria-label={t('shell.closeMenu')}
                                     style={{
                                         display: 'flex',
                                         border: 0,
@@ -382,7 +450,7 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                             <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <HelpCard />
                                 <Button variant="ghost" icon="log-out" block onClick={signOut} style={{ justifyContent: 'flex-start' }}>
-                                    Sign out
+                                    {t('shell.signOut')}
                                 </Button>
                             </div>
                         </Dialog.Panel>

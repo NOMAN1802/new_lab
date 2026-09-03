@@ -26,6 +26,7 @@ const CommissionPayoutsPage = lazy(
     () => import('@/pages/commission/CommissionPayoutsPage')
 );
 const PatientReportPage = lazy(() => import('@/pages/reports/PatientReportPage'));
+const PatientReportUploadPage = lazy(() => import('@/pages/reports/PatientReportUploadPage'));
 const FinancialReportPage = lazy(() => import('@/pages/reports/FinancialReportPage'));
 const CommissionReportPage = lazy(() => import('@/pages/reports/CommissionReportPage'));
 const DuesReportPage = lazy(() => import('@/pages/reports/DuesReportPage'));
@@ -93,6 +94,9 @@ function App() {
 
                         {/* Catalogue — readable by both, editable by admin only */}
                         <Route path="tests" element={<TestsPage />} />
+
+                        {/* Report handling is reception work too — the API allows both roles. */}
+                        <Route path="patient-reports" element={<PatientReportUploadPage />} />
 
                         {/* Patient report — both roles, patient data only */}
                         <Route path="reports/patients" element={<PatientReportPage />} />

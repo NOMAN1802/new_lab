@@ -8,10 +8,12 @@ import {
   resolveDateRange,
 } from '../../utils/dateRange';
 import {
+  candidateFileUrls,
   deleteReportFile,
   getSignedFileUrl,
   uploadReportFile,
 } from '../../utils/fileUpload';
+import { round2 } from '../../utils/money';
 import { recordActivity } from '../ActivityLog/activity-log.service';
 import { nextSequence } from '../Counter/counter.model';
 import { Patient } from '../Patient/patient.model';
@@ -53,11 +55,15 @@ export type TCreateInvoiceInput = {
   testIds: string[];
   visitDate?: string;
   discountPercent?: number;
-  commissionType?: TCommissionType;
-  commissionValue?: number;
   notes?: string;
   /** Take the whole net payable as cash immediately — the usual counter case. */
   collectFullPayment?: boolean;
+  /**
+   * Take part of the net payable at the counter, leaving the rest due. The
+   * patient settles the remainder over as many later payments as they need.
+   * Ignored when collectFullPayment is set.
+   */
+  advanceAmount?: number;
 };
 
 /**
@@ -128,14 +134,14 @@ const createInvoice = async (
   const discountPercent =
     payload.discountPercent ?? referrerDoc?.defaultDiscountPercent ?? 0;
 
-  // Commission is a separate arrangement with the referring doctor. With no
-  // referrer there is nobody to pay, so it stays zero whatever was sent.
+  // Commission is settled by an Admin from the Doctor's Commission screen, not
+  // agreed at the counter: booking only records who referred the patient. The
+  // accrual therefore always comes from the referrer's standing terms, and with
+  // no referrer there is nobody to pay.
   const commissionType = referrerDoc
-    ? payload.commissionType ?? referrerDoc.defaultCommissionType
+    ? referrerDoc.defaultCommissionType
     : 'percent';
-  const commissionValue = referrerDoc
-    ? payload.commissionValue ?? referrerDoc.defaultCommissionValue
-    : 0;
+  const commissionValue = referrerDoc ? referrerDoc.defaultCommissionValue : 0;
 
   // Both are frozen onto the invoice below, so later changes to the referrer's
   // standing terms never rewrite past billing.
@@ -200,12 +206,21 @@ const createInvoice = async (
     },
   });
 
-  // Settling at the counter is the normal case, so the receipt is issued as
-  // part of the booking rather than as a second step. A fully discounted
-  // invoice has nothing to collect and is already marked paid.
-  if (payload.collectFullPayment && invoice.netPayable > 0) {
+  // Money taken at the counter is receipted as part of the booking rather than
+  // as a second step. That is either the whole net payable, or an advance with
+  // the rest left due — the patient can then settle it over as many payments
+  // as they like. A fully discounted invoice has nothing to collect and is
+  // already marked paid.
+  //
+  // The amount is clamped to the net the server just computed, so a stale
+  // price in the client's preview can never receipt more than is owed.
+  const takeNow = payload.collectFullPayment
+    ? invoice.netPayable
+    : Math.min(payload.advanceAmount ?? 0, invoice.netPayable);
+
+  if (takeNow > 0 && invoice.netPayable > 0) {
     const { invoice: settled } = await PaymentServices.createPayment(
-      { invoice: String(invoice._id), amount: invoice.netPayable },
+      { invoice: String(invoice._id), amount: round2(takeNow) },
       userId
     );
     return settled;
@@ -447,6 +462,18 @@ const markReportDelivered = async (
     );
   }
 
+  // The report is the leverage for collecting the balance, so it does not
+  // leave the counter until the invoice is settled in full. The check is on
+  // the invoice, not the item: a part-payment does not buy one report of a
+  // multi-test booking, because payments are never allocated per test.
+  if (invoice.paymentStatus !== 'paid') {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Invoice ${invoice.invoiceNumber} still has ${invoice.dueAmount} due — ` +
+        'collect the balance before handing over the report'
+    );
+  }
+
   item.reportStatus = 'delivered';
   item.deliveredAt = new Date();
 
@@ -479,13 +506,65 @@ const getReportDownloadUrl = async (
   }
 
   return {
-    url: getSignedFileUrl(
-      item.reportFile.publicId,
-      item.reportFile.resourceType,
-      item.reportFile.format,
-      item.reportFile.version
-    ),
+    url: getSignedFileUrl(item.reportFile),
     originalName: item.reportFile.originalName,
+  };
+};
+
+/**
+ * The report's actual bytes, fetched from storage server-side.
+ *
+ * Handing the browser a signed Cloudinary URL turned out to be the wrong shape
+ * for this: the link had to be opened after an await (so popup blockers ate
+ * it), and the filename and content type were whatever Cloudinary inferred
+ * from the stored path — which for a raw PDF was nothing at all. Streaming it
+ * ourselves means the type and name come from what we recorded at upload.
+ */
+const getReportFile = async (
+  invoiceId: string,
+  itemId: string
+): Promise<{ body: Buffer; mimeType: string; fileName: string }> => {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  const item = invoice.items.find((entry) => String(entry._id) === itemId);
+  if (!item?.reportFile) {
+    throw new AppError(httpStatus.NOT_FOUND, 'No report uploaded for this test');
+  }
+
+  // No attachment flag on any of these: this is a plain fetch of the stored
+  // bytes, and the Content-Disposition goes on our own response instead.
+  const attempts: string[] = [];
+  let body: Buffer | undefined;
+
+  for (const url of candidateFileUrls(item.reportFile)) {
+    try {
+      const response = await fetch(url);
+
+      if (response.ok) {
+        body = Buffer.from(await response.arrayBuffer());
+        break;
+      }
+      attempts.push(String(response.status));
+    } catch {
+      attempts.push('unreachable');
+    }
+  }
+
+  if (!body) {
+    // The statuses are the whole diagnosis when storage refuses a report, so
+    // they travel with the message rather than only into a log.
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      `Storage would not return this report (tried ${attempts.length}: ${attempts.join(', ')}). ` +
+        'Re-uploading the file will fix it.'
+    );
+  }
+
+  return {
+    body,
+    mimeType: item.reportFile.mimeType || 'application/octet-stream',
+    fileName: item.reportFile.originalName || 'report',
   };
 };
 
@@ -499,4 +578,5 @@ export const InvoiceServices = {
   uploadItemReport,
   markReportDelivered,
   getReportDownloadUrl,
+  getReportFile,
 };

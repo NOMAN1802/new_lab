@@ -137,8 +137,17 @@ const getFinancialSummary = async (range: TDateRange) => {
     cashCollected,
     outstanding: round2(b.due ?? 0),
     commissionAccrued,
-    /** What the centre keeps once referrer commission is settled. */
-    netAfterCommission: round2(netBilled - commissionAccrued),
+    /**
+     * Revenue is what the centre actually keeps: cash in hand, less what is
+     * owed to the referring doctors on it. It is built from cashCollected, not
+     * netBilled — an invoice that has not been paid has earned nothing yet.
+     *
+     * The two sides are scoped differently, and deliberately: cash is counted
+     * by payment date, commission by the invoice's visit date. Over any period
+     * longer than a few days they converge; on a single day a payment against
+     * an older invoice can carry no matching commission.
+     */
+    revenue: round2(cashCollected - commissionAccrued),
     discountRate: grossBilled > 0 ? round2((discountGiven / grossBilled) * 100) : 0,
     collectionRate:
       netBilled > 0 ? round2((cashCollected / netBilled) * 100) : 0,

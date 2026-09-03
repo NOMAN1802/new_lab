@@ -88,11 +88,15 @@ export type CreateInvoiceInput = {
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
     discountPercent?: number;
-    commissionType?: CommissionType;
-    commissionValue?: number;
     notes?: string;
     /** Take the whole net payable as cash immediately, issuing a receipt. */
     collectFullPayment?: boolean;
+    /**
+     * Take part of it instead, leaving the rest due for the patient to settle
+     * over as many later payments as they need. Ignored when collectFullPayment
+     * is set, and clamped server-side to what is actually owed.
+     */
+    advanceAmount?: number;
 };
 
 export type PatientHistory = {
@@ -239,6 +243,22 @@ export const invoicesApi = baseApi.injectEndpoints({
                 r: ApiResponse<{ url: string; originalName: string }>
             ) => r.data,
         }),
+
+        /**
+         * The report's bytes, streamed through our own API so the blob carries
+         * the type and filename recorded at upload. Handed back as a Blob
+         * rather than a URL: opening a storage link after an await trips the
+         * browser's popup blocker, and a same-origin blob does not.
+         */
+        getReportFile: builder.mutation<Blob, { invoiceId: string; itemId: string }>({
+            query: ({ invoiceId, itemId }) => ({
+                url: `/invoices/${invoiceId}/items/${itemId}/report/file`,
+                // Only a success is a file. A failure is our usual JSON error
+                // envelope, and blobbing that would bury the message.
+                responseHandler: (response: Response) =>
+                    response.ok ? response.blob() : response.json(),
+            }),
+        }),
     }),
 });
 
@@ -252,4 +272,5 @@ export const {
     useUploadReportMutation,
     useMarkReportDeliveredMutation,
     useGetReportLinkMutation,
+    useGetReportFileMutation,
 } = invoicesApi;

@@ -39,7 +39,8 @@ export type FinancialSummary = {
     cashCollected: number;
     outstanding: number;
     commissionAccrued: number;
-    netAfterCommission: number;
+    /** Cash collected less the commission owed on it — what the centre keeps. */
+    revenue: number;
     discountRate: number;
     collectionRate: number;
 };

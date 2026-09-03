@@ -6,7 +6,9 @@ import StatusBadge from '@/components/common/StatusBadge';
 import Button from '@/components/ui/Button';
 import Checkbox from '@/components/ui/Checkbox';
 import DataTable from '@/components/ui/DataTable';
+import Icon from '@/components/ui/Icon';
 import Panel from '@/components/ui/Panel';
+import { useT } from '@/i18n/useLanguage';
 import Select from '@/components/ui/Select';
 import TextField from '@/components/ui/TextField';
 import { useRole } from '@/hooks/useRole';
@@ -26,16 +28,20 @@ const EMPTY: LabTestInput = {
 };
 
 const rowAction: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 30,
+    height: 30,
     border: 0,
     background: 'transparent',
-    padding: 0,
+    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 12,
-    fontWeight: 600,
+    transition: 'var(--transition-control)',
 };
 
 const TestsPage = () => {
+    const t = useT();
     const { isAdmin } = useRole();
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<LabTest | null>(null);
@@ -140,13 +146,13 @@ const TestsPage = () => {
                 </div>
                 {isAdmin && (
                     <Button icon="plus" onClick={startCreate}>
-                        Add test
+                        {t('jsx.addTest')}
                     </Button>
                 )}
             </div>
 
             <div style={{ maxWidth: 420 }}>
-                <TextField icon="search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or code" />
+                <TextField icon="search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('ph.searchNameCode')} />
             </div>
 
             {isFormOpen && isAdmin && (
@@ -154,26 +160,26 @@ const TestsPage = () => {
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
                             <TextField
-                                label="Test code"
+                                label={t('fld.testCode')}
                                 value={form.testCode}
                                 onChange={(e) => setForm({ ...form, testCode: e.target.value })}
                                 placeholder="CBC"
                             />
                             <TextField
-                                label="Test name"
+                                label={t('fld.testName')}
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 placeholder="Complete Blood Count"
                             />
                             <Select
-                                label="Department"
+                                label={t('col.department')}
                                 value={form.category}
                                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                                placeholder="Unassigned"
+                                placeholder={t('ph.unassigned')}
                                 options={categories.map((category) => ({ label: category.name, value: category._id }))}
                             />
                             <TextField
-                                label="Price (৳)"
+                                label={t('fld.priceTk')}
                                 type="number"
                                 min={0}
                                 step="0.01"
@@ -181,14 +187,14 @@ const TestsPage = () => {
                                 onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
                             />
                             <TextField
-                                label="Sample type"
+                                label={t('fld.sampleType')}
                                 optional
                                 value={form.sampleType}
                                 onChange={(e) => setForm({ ...form, sampleType: e.target.value })}
-                                placeholder="Blood, Urine..."
+                                placeholder={t('ph.sample')}
                             />
                             <TextField
-                                label="Report ready in (days)"
+                                label={t('fld.reportDays')}
                                 type="number"
                                 min={0}
                                 value={form.reportDeliveryDays ?? ''}
@@ -198,14 +204,14 @@ const TestsPage = () => {
 
                         <Checkbox
                             accent="brand"
-                            label="Available for booking"
+                            label={t('fld.availableBooking')}
                             checked={form.isActive}
                             onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                         />
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                             <Button variant="secondary" onClick={closeForm}>
-                                Cancel
+                                {t('ctrl.cancel')}
                             </Button>
                             <Button type="submit" loading={isSaving}>
                                 {isSaving ? 'Saving...' : editing ? 'Save changes' : 'Add test'}
@@ -216,9 +222,9 @@ const TestsPage = () => {
             )}
 
             {isLoading ? (
-                <Loader message="Loading catalogue..." />
+                <Loader message={t('ld.catalogue')} />
             ) : isError ? (
-                <ErrorState title="Could not load the test catalogue" onRetry={refetch} />
+                <ErrorState title={t('err.catalogue')} onRetry={refetch} />
             ) : (
                 <Panel padding="0">
                     <DataTable<LabTest & { id: string }>
@@ -228,7 +234,7 @@ const TestsPage = () => {
                         columns={[
                             {
                                 key: 'testCode',
-                                header: 'Code',
+                                header: t('col.code'),
                                 mono: true,
                                 render: (test) => (
                                     <span style={{ fontWeight: 600, color: 'var(--brand)', opacity: test.isActive ? 1 : 0.5 }}>{test.testCode}</span>
@@ -236,7 +242,7 @@ const TestsPage = () => {
                             },
                             {
                                 key: 'name',
-                                header: 'Test',
+                                header: t('col.test'),
                                 render: (test) => (
                                     <span style={{ opacity: test.isActive ? 1 : 0.5 }}>
                                         <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{test.name}</span>
@@ -246,7 +252,7 @@ const TestsPage = () => {
                             },
                             {
                                 key: 'category',
-                                header: 'Department',
+                                header: t('col.department'),
                                 render: (test) =>
                                     test.categoryName ?? (typeof test.category === 'object' ? test.category?.name : null) ?? (
                                         <span style={{ color: 'var(--text-faint)' }}>—</span>
@@ -254,22 +260,22 @@ const TestsPage = () => {
                             },
                             {
                                 key: 'sampleType',
-                                header: 'Sample',
+                                header: t('col.sample'),
                                 render: (test) => <span style={{ color: 'var(--text-muted)' }}>{test.sampleType || '—'}</span>,
                             },
                             {
                                 key: 'reportDeliveryDays',
-                                header: 'Report in',
+                                header: t('col.reportIn'),
                                 align: 'right',
                                 render: (test) => {
                                     const days = test.reportDeliveryDays ?? 1;
                                     return `${days} ${days === 1 ? 'day' : 'days'}`;
                                 },
                             },
-                            { key: 'status', header: 'Status', render: (test) => <StatusBadge status={test.isActive ? 'active' : 'inactive'} /> },
+                            { key: 'status', header: t('col.status'), render: (test) => <StatusBadge status={test.isActive ? 'active' : 'inactive'} /> },
                             {
                                 key: 'price',
-                                header: 'Price',
+                                header: t('col.price'),
                                 align: 'right',
                                 render: (test) => <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{money(test.price)}</span>,
                             },
@@ -277,19 +283,25 @@ const TestsPage = () => {
                                 ? [
                                       {
                                           key: 'actions',
-                                          header: 'Actions',
+                                          header: t('col.actions'),
                                           align: 'right' as const,
                                           render: (test: LabTest) => (
-                                              <span style={{ display: 'inline-flex', gap: 12 }}>
-                                                  <button type="button" onClick={() => startEdit(test)} style={{ ...rowAction, color: 'var(--brand)' }}>
-                                                      Edit
+                                              <span style={{ display: 'inline-flex', gap: 4 }}>
+                                                  <button
+                                                      type="button"
+                                                      aria-label={`Edit ${test.name}`}
+                                                      onClick={() => startEdit(test)}
+                                                      style={{ ...rowAction, color: 'var(--brand)' }}
+                                                  >
+                                                      <Icon name="pencil" size={16} />
                                                   </button>
                                                   <button
                                                       type="button"
+                                                      aria-label={`Remove ${test.name}`}
                                                       onClick={() => handleDelete(test)}
                                                       style={{ ...rowAction, color: 'var(--danger-strong)' }}
                                                   >
-                                                      Remove
+                                                      <Icon name="trash-2" size={16} />
                                                   </button>
                                               </span>
                                           ),

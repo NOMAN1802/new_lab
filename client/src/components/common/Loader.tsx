@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties } from 'react';
 
 type LoaderProps = {
@@ -7,7 +8,9 @@ type LoaderProps = {
 };
 
 /** Indigo ring spinner. fullScreen is the app-boot state. */
-const Loader = ({ message = 'Loading...', fullScreen = false, style }: LoaderProps) => {
+const Loader = ({ message, fullScreen = false, style }: LoaderProps) => {
+    const t = useT();
+    const text = message ?? t('common.loading');
     const ring = (size: string, border: string): CSSProperties => ({
         width: size,
         height: size,
@@ -38,7 +41,7 @@ const Loader = ({ message = 'Loading...', fullScreen = false, style }: LoaderPro
                             color: 'var(--text-muted)',
                         }}
                     >
-                        {message}
+                        {text}
                     </p>
                 </div>
             </div>
@@ -58,7 +61,7 @@ const Loader = ({ message = 'Loading...', fullScreen = false, style }: LoaderPro
             }}
         >
             <span style={ring('18px', '2px')} />
-            {message}
+            {text}
         </div>
     );
 };
