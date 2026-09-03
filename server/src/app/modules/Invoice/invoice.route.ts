@@ -70,4 +70,11 @@ router.get(
   InvoiceControllers.getReportDownloadUrl
 );
 
+// The bytes themselves, typed and named from what we stored at upload.
+router.get(
+  '/:id/items/:itemId/report/file',
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
+  InvoiceControllers.getReportFile
+);
+
 export const invoiceRoutes = router;
