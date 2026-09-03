@@ -7,81 +7,109 @@ import Loader from '@/components/common/Loader';
 import StatCard from '@/components/common/StatCard';
 import StatusBadge from '@/components/common/StatusBadge';
 import DataTable from '@/components/ui/DataTable';
+import Pagination from '@/components/ui/Pagination';
 import Panel from '@/components/ui/Panel';
 import { formatDate } from '@/lib/format';
+import { useT } from '@/i18n/useLanguage';
 import { useGetPatientReportQuery } from '@/services/reportsApi';
 import type { PatientReportRow } from '@/services/reportsApi';
+import type { TranslationKey } from '@/i18n/translations';
 
-const COLUMNS = [
-    { header: 'Invoice', accessor: (row: PatientReportRow) => row.invoiceNumber },
-    { header: 'Date', accessor: (row: PatientReportRow) => formatDate(row.visitDate) },
-    { header: 'Patient ID', accessor: (row: PatientReportRow) => row.patientId },
-    { header: 'Name', accessor: (row: PatientReportRow) => row.patientName },
-    { header: 'Age', accessor: (row: PatientReportRow) => row.age },
-    { header: 'Sex', accessor: (row: PatientReportRow) => row.gender },
-    { header: 'Phone', accessor: (row: PatientReportRow) => row.phone },
-    { header: 'Tests', accessor: (row: PatientReportRow) => row.tests.join(', ') },
-    { header: 'Reports pending', accessor: (row: PatientReportRow) => row.reportsPending },
-    { header: 'Payment', accessor: (row: PatientReportRow) => row.paymentStatus },
+/** Export columns carry keys; the header text is resolved at render. */
+const COLUMN_DEFS: { key: TranslationKey; accessor: (row: PatientReportRow) => string | number }[] = [
+    { key: 'col.invoice', accessor: (row) => row.invoiceNumber },
+    { key: 'col.date', accessor: (row) => formatDate(row.visitDate) },
+    { key: 'col.patientId', accessor: (row) => row.patientId },
+    { key: 'col.name', accessor: (row) => row.patientName },
+    { key: 'pform.age', accessor: (row) => row.age },
+    { key: 'pform.sex', accessor: (row) => row.gender },
+    { key: 'col.phone', accessor: (row) => row.phone },
+    { key: 'col.tests', accessor: (row) => row.tests.join(', ') },
+    { key: 'col.pending', accessor: (row) => row.reportsPending },
+    { key: 'col.payment', accessor: (row) => row.paymentStatus },
 ];
+
+const PAGE_SIZE = 20;
 
 const PatientReportPage = () => {
     const [range, setRange] = useState(rangeForDays(29));
+    const t = useT();
     const { data, isLoading, isError, refetch } = useGetPatientReportQuery(range);
+
+    /**
+     * Paged here rather than on the server: the endpoint answers with the whole
+     * range in one payload, and the PDF/Excel export below is built from that
+     * same set. Paging the request would quietly reduce an export to whichever
+     * page happened to be on screen.
+     */
+    const [page, setPage] = useState(1);
+    const rows = data?.rows ?? [];
+    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+
+    // A new date range is a new result set, so the paging starts over.
+    const [pagedFor, setPagedFor] = useState(range);
+    if (pagedFor !== range) {
+        setPagedFor(range);
+        setPage(1);
+    }
+
+    const columns = COLUMN_DEFS.map((column) => ({ header: t(column.key), accessor: column.accessor }));
+
+    const visible = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     return (
         <>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>Patient report</h2>
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('rep.patientTitle')}</h2>
                     <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)', maxWidth: 620 }}>
-                        Visits, tests performed and report status for the selected dates.
+                        {t('rep.patientSub')}
                     </p>
                 </div>
                 <ExportButtons
-                    title="Patient report"
+                    title={t('rep.patientTitle')}
                     subtitle={`${range.startDate} to ${range.endDate}`}
                     filename={`patient-report-${range.startDate}-to-${range.endDate}`}
-                    columns={COLUMNS}
-                    rows={data?.rows ?? []}
+                    columns={columns}
+                    rows={rows}
                 />
             </div>
 
             <DateRangePicker value={range} onChange={setRange} />
 
             {isLoading ? (
-                <Loader message="Building report..." />
+                <Loader message={t('ld.report')} />
             ) : isError || !data ? (
-                <ErrorState title="Could not load the patient report" onRetry={refetch} />
+                <ErrorState title={t('err.patientReport')} onRetry={refetch} />
             ) : (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                        <StatCard label="Visits" value={data.summary.visits} icon="clipboard-list" />
-                        <StatCard label="New patients" value={data.summary.newPatients} icon="user-round-plus" accent="brand" />
-                        <StatCard label="Tests performed" value={data.summary.testsPerformed} icon="flask-conical" accent="neutral" />
-                        <StatCard label="Patients on file" value={data.summary.totalPatients} icon="users" accent="neutral" />
+                        <StatCard label={t('rep.visits')} value={data.summary.visits} icon="clipboard-list" />
+                        <StatCard label={t('rep.newPatients')} value={data.summary.newPatients} icon="user-round-plus" accent="brand" />
+                        <StatCard label={t('rep.testsPerformed')} value={data.summary.testsPerformed} icon="flask-conical" accent="neutral" />
+                        <StatCard label={t('rep.patientsOnFile')} value={data.summary.totalPatients} icon="users" accent="neutral" />
                     </div>
 
                     <Panel padding="0">
                         <DataTable<PatientReportRow & { id: string }>
                             minWidth="56rem"
-                            empty="No visits in this date range."
-                            rows={data.rows.map((row) => ({ ...row, id: row.invoiceNumber }))}
+                            empty={t('rep.noVisits')}
+                            rows={visible.map((row) => ({ ...row, id: row.invoiceNumber }))}
                             columns={[
                                 {
                                     key: 'invoiceNumber',
-                                    header: 'Invoice',
+                                    header: t('col.invoice'),
                                     mono: true,
                                     render: (row) => <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{row.invoiceNumber}</span>,
                                 },
                                 {
                                     key: 'visitDate',
-                                    header: 'Date',
+                                    header: t('col.date'),
                                     render: (row) => <span style={{ color: 'var(--text-muted)' }}>{formatDate(row.visitDate)}</span>,
                                 },
                                 {
                                     key: 'patientName',
-                                    header: 'Patient',
+                                    header: t('col.patient'),
                                     render: (row) => (
                                         <div>
                                             <p style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{row.patientName}</p>
@@ -93,19 +121,21 @@ const PatientReportPage = () => {
                                 },
                                 {
                                     key: 'ageSex',
-                                    header: 'Age / Sex',
+                                    header: t('col.ageSex'),
                                     render: (row) => (
                                         <span style={{ textTransform: 'capitalize' }}>
                                             {row.age} / {row.gender}
                                         </span>
                                     ),
                                 },
-                                { key: 'tests', header: 'Tests', render: (row) => row.tests.join(', ') },
-                                { key: 'reportsPending', header: 'Pending', align: 'right' },
-                                { key: 'paymentStatus', header: 'Payment', render: (row) => <StatusBadge status={row.paymentStatus} /> },
+                                { key: 'tests', header: t('col.tests'), render: (row) => row.tests.join(', ') },
+                                { key: 'reportsPending', header: t('col.pending'), align: 'right' },
+                                { key: 'paymentStatus', header: t('col.payment'), render: (row) => <StatusBadge status={row.paymentStatus} /> },
                             ]}
                         />
                     </Panel>
+
+                    <Pagination page={page} totalPages={totalPages} onChange={setPage} />
                 </>
             )}
         </>

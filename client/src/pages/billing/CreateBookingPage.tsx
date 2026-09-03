@@ -3,23 +3,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
-import Checkbox from '@/components/ui/Checkbox';
 import Icon from '@/components/ui/Icon';
+import InlineAlert from '@/components/ui/InlineAlert';
 import Panel from '@/components/ui/Panel';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Select from '@/components/ui/Select';
 import TextField from '@/components/ui/TextField';
 import Textarea from '@/components/ui/Textarea';
-import { useRole } from '@/hooks/useRole';
+import { useT } from '@/i18n/useLanguage';
 import { apiErrorMessage, money } from '@/lib/format';
 import { useCreateInvoiceMutation } from '@/services/invoicesApi';
 import { useGetPatientsQuery } from '@/services/patientsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
 import { useGetTestsQuery } from '@/services/testsApi';
 import type { LabTest } from '@/services/testsApi';
-import type { CommissionType } from '@/services/invoicesApi';
 
 const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+/** How much of the bill is taken at the counter, right now. */
+type PayMode = 'full' | 'part' | 'none';
 
 const testRow: React.CSSProperties = {
     display: 'flex',
@@ -40,7 +42,7 @@ const testRow: React.CSSProperties = {
 const CreateBookingPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { isAdmin } = useRole();
+    const t = useT();
 
     const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
     const [patientSearch, setPatientSearch] = useState('');
@@ -50,10 +52,9 @@ const CreateBookingPage = () => {
     const [notes, setNotes] = useState('');
     // Blank means "use the referrer's standing terms".
     const [discountOverride, setDiscountOverride] = useState('');
-    const [commissionType, setCommissionType] = useState<CommissionType | ''>('');
-    const [commissionValue, setCommissionValue] = useState('');
-    // Settling at the counter is the normal case, so this starts ticked.
-    const [collectFullPayment, setCollectFullPayment] = useState(true);
+    // Settling in full at the counter is the normal case, so it starts there.
+    const [payMode, setPayMode] = useState<PayMode>('full');
+    const [advance, setAdvance] = useState('');
 
     const { data: patientData, isLoading: loadingPatients } = useGetPatientsQuery({
         search: patientSearch.trim() || undefined,
@@ -88,15 +89,26 @@ const CreateBookingPage = () => {
         const discount = round2((gross * discountPercent) / 100);
         const net = round2(gross - discount);
 
-        // Commission is a separate arrangement with the referring doctor and
-        // never touches the patient's bill. No referrer, nobody to pay.
-        const type = commissionType || referrer?.defaultCommissionType || 'percent';
-        const value = commissionValue !== '' ? Number(commissionValue) : (referrer?.defaultCommissionValue ?? 0);
-
-        const commission = !referrer ? 0 : type === 'fixed' ? round2(value) : round2((net * value) / 100);
-
-        return { gross, discountPercent, discount, net, commissionType: type, commission };
+        // Commission is deliberately absent: booking records who referred the
+        // patient, and an Admin settles what they are owed from the Doctor's
+        // Commission screen.
+        return { gross, discountPercent, discount, net };
     })();
+
+    /**
+     * The part-payment, validated against the previewed net. The server clamps
+     * it again to the net it computes, so this is convenience, not the guard.
+     */
+    const advanceTaken = payMode === 'part' && advance !== '' ? round2(Number(advance)) : 0;
+
+    const advanceError =
+        payMode !== 'part' || advance === ''
+            ? undefined
+            : !Number.isFinite(advanceTaken) || advanceTaken <= 0
+              ? 'Enter an amount greater than zero'
+              : advanceTaken > totals.net
+                ? `Cannot take more than the ${money(totals.net)} payable`
+                : undefined;
 
     const addTest = (test: LabTest) => setSelected((current) => [...current, test]);
     const removeTest = (index: number) => setSelected((current) => current.filter((_, i) => i !== index));
@@ -112,6 +124,14 @@ const CreateBookingPage = () => {
             toast.error('Add at least one test');
             return;
         }
+        if (advanceError) {
+            toast.error(advanceError);
+            return;
+        }
+        if (payMode === 'part' && advanceTaken <= 0) {
+            toast.error('Enter how much the patient is paying now');
+            return;
+        }
 
         try {
             const invoice = await createInvoice({
@@ -119,18 +139,19 @@ const CreateBookingPage = () => {
                 referrer: referrerId || undefined,
                 testIds: selected.map((test) => test._id),
                 notes: notes.trim() || undefined,
-                collectFullPayment,
-                // Blank fields are omitted so the server falls back to the
-                // referrer's standing terms.
+                collectFullPayment: payMode === 'full',
+                advanceAmount: payMode === 'part' ? advanceTaken : undefined,
+                // Blank is omitted so the server falls back to the referrer's
+                // standing discount.
                 discountPercent: discountOverride !== '' ? Number(discountOverride) : undefined,
-                commissionType: commissionType || undefined,
-                commissionValue: commissionValue !== '' ? Number(commissionValue) : undefined,
             }).unwrap();
 
             toast.success(
                 invoice.paymentStatus === 'paid'
                     ? `Invoice ${invoice.invoiceNumber} created and paid in full`
-                    : `Invoice ${invoice.invoiceNumber} created`,
+                    : invoice.paidAmount > 0
+                      ? `Invoice ${invoice.invoiceNumber} created — ${money(invoice.paidAmount)} taken, ${money(invoice.dueAmount)} due`
+                      : `Invoice ${invoice.invoiceNumber} created`,
             );
             navigate(`/billing/${invoice._id}`);
         } catch (error) {
@@ -138,36 +159,34 @@ const CreateBookingPage = () => {
         }
     };
 
-    const activeCommissionType = commissionType || referrer?.defaultCommissionType || 'percent';
-
     return (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
             <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>New booking</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>{t('booking.title')}</h2>
                 <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
-                    Select the patient, add tests, and the invoice is generated on save.
+                    {t('booking.subtitle')}
                 </p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px,1fr))', gap: 'var(--gap-grid)', alignItems: 'start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
-                    <Panel title="Patient">
+                    <Panel title={t('booking.patient')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <TextField
                                 icon="search"
                                 type="search"
                                 value={patientSearch}
                                 onChange={(e) => setPatientSearch(e.target.value)}
-                                placeholder="Search by name, phone or patient ID"
+                                placeholder={t('patients.searchPlaceholder')}
                             />
 
                             {loadingPatients ? (
-                                <Loader message="Loading patients..." />
+                                <Loader message={t('booking.loadingPatients')} />
                             ) : (
                                 <Select
                                     value={patientId}
                                     onChange={(e) => setPatientId(e.target.value)}
-                                    placeholder="Select a patient"
+                                    placeholder={t('booking.selectPatient')}
                                     options={patients.map((option) => ({
                                         label: `${option.patientId} · ${option.name} · ${option.phone}`,
                                         value: option._id,
@@ -206,12 +225,12 @@ const CreateBookingPage = () => {
                                     color: 'var(--brand)',
                                 }}
                             >
-                                + Register a new patient
+                                {t('booking.registerNew')}
                             </button>
                         </div>
                     </Panel>
 
-                    <Panel title="Referred by" subtitle="Optional — a walk-in accrues no commission">
+                    <Panel title={t('booking.referredBy')} subtitle={t('booking.referredBySub')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <Select
                                 value={referrerId}
@@ -219,10 +238,8 @@ const CreateBookingPage = () => {
                                     setReferrerId(e.target.value);
                                     // Fall back to the new referrer's own terms.
                                     setDiscountOverride('');
-                                    setCommissionType('');
-                                    setCommissionValue('');
                                 }}
-                                placeholder="Walk-in — no referrer"
+                                placeholder={t('booking.walkInOption')}
                                 options={referrers.map((option) => ({
                                     label: `${option.referrerCode} · ${option.name}${option.hospital ? ` · ${option.hospital}` : ''}`,
                                     value: option._id,
@@ -230,7 +247,7 @@ const CreateBookingPage = () => {
                             />
 
                             <TextField
-                                label="Patient discount (%)"
+                                label={t('booking.discount')}
                                 id="discount"
                                 type="number"
                                 min={0}
@@ -239,59 +256,27 @@ const CreateBookingPage = () => {
                                 value={discountOverride}
                                 onChange={(e) => setDiscountOverride(e.target.value)}
                                 placeholder={referrer ? `Default ${referrer.defaultDiscountPercent ?? 0}%` : '0'}
-                                hint="Comes off what the patient pays. Leave blank to use the referrer's standing rate."
+                                hint={t('booking.discountHint')}
                             />
 
-                            {isAdmin && referrer && (
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 12,
-                                        background: 'var(--surface-sunken)',
-                                        borderRadius: 'var(--radius-md)',
-                                        padding: 'var(--space-4)',
-                                    }}
-                                >
-                                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>Commission to {referrer.name}</p>
-
-                                    <SegmentedControl
-                                        options={[
-                                            { label: '% of paid amount', value: 'percent' },
-                                            { label: 'Fixed amount (৳)', value: 'fixed' },
-                                        ]}
-                                        value={activeCommissionType}
-                                        onChange={(value) => setCommissionType(value as CommissionType)}
-                                    />
-
-                                    <TextField
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={commissionValue}
-                                        onChange={(e) => setCommissionValue(e.target.value)}
-                                        placeholder={`Default ${referrer.defaultCommissionValue ?? 0}${
-                                            (referrer.defaultCommissionType ?? 'percent') === 'fixed' ? ' ৳' : '%'
-                                        }`}
-                                        hint="Paid by the centre to the referrer — it does not change the patient's bill. Leave blank to use their standing terms."
-                                    />
-                                </div>
+                            {referrer && (
+                                <InlineAlert tone="info">{t('booking.commissionNote').replace('{name}', referrer.name)}</InlineAlert>
                             )}
                         </div>
                     </Panel>
 
-                    <Panel title="Tests">
+                    <Panel title={t('booking.tests')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <TextField
                                 icon="search"
                                 type="search"
                                 value={testSearch}
                                 onChange={(e) => setTestSearch(e.target.value)}
-                                placeholder="Search tests by name or code"
+                                placeholder={t('booking.searchTests')}
                             />
 
                             {loadingTests ? (
-                                <Loader message="Loading catalogue..." />
+                                <Loader message={t('booking.loadingCatalogue')} />
                             ) : (
                                 <ul
                                     style={{
@@ -337,7 +322,7 @@ const CreateBookingPage = () => {
                                     ))}
                                     {tests.length === 0 && (
                                         <li style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
-                                            No tests match that search.
+                                            {t('jsx.noTestsMatch')}
                                         </li>
                                     )}
                                 </ul>
@@ -346,7 +331,7 @@ const CreateBookingPage = () => {
                     </Panel>
                 </div>
 
-                <Panel title={`Selected tests (${selected.length})`} style={{ position: 'sticky', top: 'calc(var(--topbar-h) + 16px)' }}>
+                <Panel title={`${t('booking.selectedTests')} (${selected.length})`} style={{ position: 'sticky', top: 'calc(var(--topbar-h) + 16px)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {selected.length === 0 ? (
                             <p
@@ -359,7 +344,7 @@ const CreateBookingPage = () => {
                                     color: 'var(--text-muted)',
                                 }}
                             >
-                                No tests added yet.
+                                {t('booking.noTests')}
                             </p>
                         ) : (
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -406,12 +391,12 @@ const CreateBookingPage = () => {
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <dt style={{ color: 'var(--text-muted)' }}>Gross</dt>
+                                <dt style={{ color: 'var(--text-muted)' }}>{t('booking.gross')}</dt>
                                 <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.gross)}</dd>
                             </div>
                             {totals.discount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning-strong)' }}>
-                                    <dt>Discount ({totals.discountPercent}%)</dt>
+                                    <dt>{t('booking.discountLine')} ({totals.discountPercent}%)</dt>
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>−{money(totals.discount)}</dd>
                                 </div>
                             )}
@@ -425,51 +410,66 @@ const CreateBookingPage = () => {
                                     fontWeight: 700,
                                 }}
                             >
-                                <dt style={{ color: 'var(--text-heading)' }}>Patient pays</dt>
+                                <dt style={{ color: 'var(--text-heading)' }}>{t('booking.patientPays')}</dt>
                                 <dd style={{ margin: 0, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.net)}</dd>
                             </div>
 
-                            {/* Below the line: the centre's cost, not the patient's bill. */}
-                            {isAdmin && referrer && totals.commission > 0 && (
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        borderTop: '1px dashed var(--border-subtle)',
-                                        paddingTop: 10,
-                                        fontSize: 12,
-                                        color: 'var(--text-muted)',
-                                    }}
-                                >
-                                    <dt>
-                                        Commission to {referrer.name.split(' ').slice(-1)[0]}
-                                        {totals.commissionType === 'percent' ? ' (% of paid)' : ' (fixed)'}
-                                    </dt>
-                                    <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>{money(totals.commission)}</dd>
-                                </div>
-                            )}
                         </dl>
 
-                        <Textarea label="Notes" optional rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                        <Textarea label={t('booking.notes')} optional rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-                        <Checkbox
-                            card
-                            checked={collectFullPayment}
-                            onChange={(e) => setCollectFullPayment(e.target.checked)}
-                            label="Collect full payment now"
-                            description={
-                                collectFullPayment
-                                    ? `Takes ${money(totals.net)} in cash and issues a receipt with the invoice.`
-                                    : 'The invoice will be left unpaid — collect on the invoice later.'
-                            }
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{t('booking.paymentNow')}</p>
 
-                        <Button type="submit" block size="lg" loading={isSubmitting} disabled={selected.length === 0 || !patientId}>
-                            {isSubmitting ? 'Creating invoice...' : collectFullPayment ? 'Create invoice & take payment' : 'Create invoice'}
+                            <SegmentedControl
+                                options={[
+                                    { label: t('booking.full'), value: 'full' },
+                                    { label: t('booking.part'), value: 'part' },
+                                    { label: t('booking.none'), value: 'none' },
+                                ]}
+                                value={payMode}
+                                onChange={(value) => setPayMode(value as PayMode)}
+                            />
+
+                            {payMode === 'part' && (
+                                <TextField
+                                    label={t('booking.amountTaken')}
+                                    id="advance"
+                                    type="number"
+                                    min={0}
+                                    max={totals.net}
+                                    step="0.01"
+                                    value={advance}
+                                    onChange={(e) => setAdvance(e.target.value)}
+                                    placeholder="0.00"
+                                    hint={t('booking.advanceHint').replace('{amount}', money(totals.net))}
+                                    error={advanceError}
+                                />
+                            )}
+
+                            <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                                {payMode === 'full'
+                                    ? t('booking.takesInCash').replace('{amount}', money(totals.net))
+                                    : payMode === 'part'
+                                      ? t('booking.receiptsNow')
+                                            .replace('{amount}', money(advanceTaken))
+                                            .replace('{due}', money(round2(totals.net - advanceTaken)))
+                                      : t('booking.leftUnpaid').replace('{amount}', money(totals.net))}
+                            </p>
+                        </div>
+
+                        <Button
+                            type="submit"
+                            block
+                            size="lg"
+                            loading={isSubmitting}
+                            disabled={selected.length === 0 || !patientId || Boolean(advanceError)}
+                        >
+                            {isSubmitting ? t('booking.creating') : payMode === 'none' ? t('booking.create') : t('booking.createAndPay')}
                         </Button>
 
                         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>
-                            Partial payments can be recorded on the invoice at any time.
+                            {t('booking.laterNote')}
                         </p>
                     </div>
                 </Panel>

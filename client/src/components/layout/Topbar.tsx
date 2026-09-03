@@ -7,36 +7,42 @@ import { useRole } from '@/hooks/useRole';
 import { logout } from '@/features/auth/authSlice';
 import Icon from '@/components/ui/Icon';
 import type { IconName } from '@/components/ui/Icon';
+import { useT } from '@/i18n/useLanguage';
+import type { TranslationKey } from '@/i18n/translations';
+import GlobalSearch from './GlobalSearch';
+import LanguageToggle from './LanguageToggle';
+import NotificationBell from './NotificationBell';
 
 type TopbarProps = {
     onMenuClick: () => void;
 };
 
 /** Longest paths first, so /billing/new wins over /billing. */
-const PAGE_TITLES: [string, string][] = [
-    ['/patients/new', 'Register patient'],
-    ['/patients', 'Patients'],
-    ['/billing/new', 'New booking'],
-    ['/billing', 'Invoices'],
-    ['/tests', 'Test catalogue'],
-    ['/departments', 'Departments'],
-    ['/referrers', 'Referrers'],
-    ['/commission', 'Commission payouts'],
-    ['/reports/patients', 'Patient report'],
-    ['/reports/financial', 'Financial summary'],
-    ['/reports/commission', 'Referral & commission'],
-    ['/reports/dues', 'Outstanding payments'],
-    ['/reports', 'Reports'],
-    ['/activity', 'User activity'],
-    ['/users', 'User management'],
-    ['/settings', 'Settings'],
-    ['/profile', 'Profile'],
+const PAGE_TITLES: [string, TranslationKey][] = [
+    ['/patients/new', 'page.registerPatient'],
+    ['/patients', 'page.patients'],
+    ['/billing/new', 'page.newBooking'],
+    ['/billing', 'page.invoices'],
+    ['/patient-reports', 'page.reportDelivery'],
+    ['/tests', 'page.testCatalogue'],
+    ['/departments', 'page.departments'],
+    ['/referrers', 'page.referrers'],
+    ['/commission', 'page.commission'],
+    ['/reports/patients', 'page.patientReport'],
+    ['/reports/financial', 'page.financialSummary'],
+    ['/reports/commission', 'page.referralCommission'],
+    ['/reports/dues', 'page.outstandingPayments'],
+    ['/reports', 'page.reports'],
+    ['/activity', 'page.userActivity'],
+    ['/users', 'page.userManagement'],
+    ['/settings', 'page.settings'],
+    ['/profile', 'page.profile'],
 ];
 
-const titleFor = (pathname: string): string => {
-    if (pathname === '/') return 'Dashboard';
+const titleKeyFor = (pathname: string): TranslationKey => {
+    if (pathname === '/') return 'page.dashboard';
     const match = PAGE_TITLES.find(([prefix]) => pathname.startsWith(prefix));
-    return match ? match[1] : 'Dashboard';
+    return match ? match[1] : 'page.dashboard';
 };
 
 const iconBtn: CSSProperties = {
@@ -76,6 +82,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isAdmin } = useRole();
+    const t = useT();
 
     const handleLogout = () => {
         dispatch(logout());
@@ -83,8 +90,8 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
     };
 
     const entries: [string, IconName, () => void][] = [
-        ['Profile', 'user-round', () => navigate('/profile')],
-        ...(isAdmin ? ([['Settings', 'settings', () => navigate('/settings')]] as [string, IconName, () => void][]) : []),
+        [t('shell.profile'), 'user-round', () => navigate('/profile')],
+        ...(isAdmin ? ([[t('shell.settings'), 'settings', () => navigate('/settings')]] as [string, IconName, () => void][]) : []),
     ];
 
     return (
@@ -105,7 +112,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: 1, minWidth: 0 }}>
-                <button type="button" onClick={onMenuClick} aria-label="Open menu" className="lg:hidden" style={iconBtn}>
+                <button type="button" onClick={onMenuClick} aria-label={t('shell.openMenu')} className="lg:hidden" style={iconBtn}>
                     <Icon name="menu" size={18} />
                 </button>
                 <h1
@@ -118,11 +125,14 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
                         flex: '0 1 auto',
                     }}
                 >
-                    {titleFor(location.pathname)}
+                    {t(titleKeyFor(location.pathname))}
                 </h1>
+                <GlobalSearch />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+                <LanguageToggle />
+                <NotificationBell />
                 <Menu as="div" style={{ position: 'relative' }}>
                     <Menu.Button
                         style={{
@@ -236,7 +246,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
                                 {({ active }) => (
                                     <button type="button" onClick={handleLogout} style={menuItem(active, true)}>
                                         <Icon name="log-out" size={16} />
-                                        Sign out
+                                        {t('shell.signOut')}
                                     </button>
                                 )}
                             </Menu.Item>

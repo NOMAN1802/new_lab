@@ -14,12 +14,12 @@ type AreaTrendChartProps = {
     style?: CSSProperties;
 };
 
-/** Cash-collected trend. Indigo line over a fading indigo wash, dashed comparison behind. */
+/** Cash-collected trend: an ink line over a faint wash of itself, dashed comparison behind. */
 const AreaTrendChart = ({
     data = [],
     compare = null,
     height = 240,
-    color = 'var(--brand)',
+    color = 'var(--chart-1)',
     valueFormat = (v) => v,
     ticks = 4,
     style,
@@ -42,9 +42,14 @@ const AreaTrendChart = ({
     return (
         <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={height} style={{ display: 'block', overflow: 'visible', ...style }}>
             <defs>
+                {/* Ink is dark enough that an even wash reads as a grey block
+                    rather than a fill. Most of the falloff happens early, so
+                    the area settles back onto the card's paper well before the
+                    axis instead of ending on a visible edge. */}
                 <linearGradient id="nl-area" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.22" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+                    <stop offset="0%" stopColor={color} stopOpacity="0.07" />
+                    <stop offset="45%" stopColor={color} stopOpacity="0.025" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
                 </linearGradient>
             </defs>
             {gridVals.map((v, i) => (
@@ -55,14 +60,14 @@ const AreaTrendChart = ({
                     </text>
                 </g>
             ))}
-            {cmp && <path d={path(cmp)} fill="none" stroke="var(--slate-300)" strokeWidth="1.5" strokeDasharray="5 5" />}
+            {cmp && <path d={path(cmp)} fill="none" stroke="var(--chart-3)" strokeWidth="1.5" strokeDasharray="5 5" />}
             {pts.length > 1 && (
                 <path
                     d={`${path(pts)} L ${pts[pts.length - 1][0].toFixed(1)} ${h - padB} L ${pts[0][0].toFixed(1)} ${h - padB} Z`}
                     fill="url(#nl-area)"
                 />
             )}
-            <path d={path(pts)} fill="none" stroke={color} strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={path(pts)} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
             {data.map((d, i) =>
                 i % labelEvery === 0 || i === data.length - 1 ? (
                     <text

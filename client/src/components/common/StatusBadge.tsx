@@ -1,33 +1,59 @@
 import type { CSSProperties } from 'react';
+import { useT } from '@/i18n/useLanguage';
+import type { TranslationKey } from '@/i18n/translations';
 
-const styles: Record<string, [string, string]> = {
-    paid: ['var(--success-bg)', 'var(--success-strong)'],
-    completed: ['var(--success-bg)', 'var(--success-strong)'],
-    delivered: ['var(--success-bg)', 'var(--success-strong)'],
-    active: ['var(--success-bg)', 'var(--success-strong)'],
-    pending: ['var(--warning-bg)', 'var(--warning-strong)'],
-    unpaid: ['var(--warning-bg)', 'var(--warning-strong)'],
-    partial: ['var(--info-bg)', 'var(--brand-dark)'],
-    'partially paid': ['var(--info-bg)', 'var(--brand-dark)'],
-    uploaded: ['var(--info-bg)', 'var(--brand-dark)'],
-    overdue: ['var(--danger-bg)', 'var(--danger-strong)'],
-    cancelled: ['var(--danger-bg)', 'var(--danger-strong)'],
-    draft: ['var(--surface-muted)', 'var(--text-muted)'],
-    inactive: ['var(--slate-200)', 'var(--text-muted)'],
+/**
+ * [background, text, border]
+ *
+ * With no hue to carry meaning, these separate on tonal value, and the scale
+ * runs by how much the state wants attention rather than by whether it is
+ * "good": a solid dark chip is something to act on, an outline is open but
+ * calm, and a pale fill is finished business.
+ */
+const styles: Record<string, [string, string, string]> = {
+    // Needs acting on — the loudest thing in the row.
+    overdue: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
+    cancelled: ['var(--slate-900)', 'var(--white)', 'var(--slate-900)'],
+
+    // Open: outlined, so it reads as an empty box still to be filled.
+    unpaid: ['var(--surface-card)', 'var(--slate-800)', 'var(--slate-400)'],
+    pending: ['var(--surface-card)', 'var(--slate-800)', 'var(--slate-400)'],
+
+    // Underway.
+    partial: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
+    'partially paid': ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
+    uploaded: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
+
+    // Done — deliberately quiet.
+    paid: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+    completed: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+    delivered: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+    active: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+
+    draft: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+    inactive: ['var(--surface-card)', 'var(--slate-400)', 'var(--slate-300)'],
 };
 
 /** Invoice, report and account state. Copy stays lowercase in data, Capitalised on screen. */
 const StatusBadge = ({ status = '', style }: { status?: string; style?: CSSProperties }) => {
-    const [bg, fg] = styles[String(status).toLowerCase()] || ['var(--surface-muted)', 'var(--text-muted)'];
+    const t = useT();
+    const key = String(status).toLowerCase();
+    const [bg, fg, border] = styles[key] || [
+        'var(--slate-100)',
+        'var(--slate-500)',
+        'var(--slate-100)',
+    ];
+
     return (
         <span
             style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '4px 10px',
+                padding: '3px 10px',
                 borderRadius: 'var(--radius-pill)',
                 background: bg,
                 color: fg,
+                border: `1px solid ${border}`,
                 fontSize: 'var(--text-12)',
                 fontWeight: 'var(--fw-semibold)' as CSSProperties['fontWeight'],
                 fontFamily: 'var(--font-sans)',
@@ -36,7 +62,7 @@ const StatusBadge = ({ status = '', style }: { status?: string; style?: CSSPrope
                 ...style,
             }}
         >
-            {status}
+            {t(`status.${key}` as TranslationKey, status)}
         </span>
     );
 };

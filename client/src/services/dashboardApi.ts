@@ -44,6 +44,8 @@ export type AdminDashboard = {
         net: number;
         due: number;
         commission: number;
+        /** Cash collected less the commission owed on it — what the centre keeps. */
+        revenue: number;
     };
     commission: { accrued: number; paid: number; pending: number };
     outstanding: { total: number; invoiceCount: number };

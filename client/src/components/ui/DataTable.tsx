@@ -1,3 +1,4 @@
+import { useT } from '@/i18n/useLanguage';
 import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
@@ -23,12 +24,13 @@ type DataTableProps<T> = {
 const DataTable = <T extends Record<string, unknown>>({
     columns,
     rows,
-    empty = 'Nothing to show yet.',
+    empty,
     dense = false,
     minWidth = '46rem',
     onRowClick,
     style,
 }: DataTableProps<T>) => {
+    const t = useT();
     const [hover, setHover] = useState(-1);
     const pad = dense ? '10px var(--space-4)' : '14px var(--space-5)';
 
@@ -40,18 +42,18 @@ const DataTable = <T extends Record<string, unknown>>({
                     borderRadius: 'var(--radius-md)',
                     padding: 'var(--space-8)',
                     textAlign: 'center',
-                    fontSize: 'var(--text-13)',
+                    fontSize: 'var(--text-12)',
                     color: 'var(--text-muted)',
                 }}
             >
-                {empty}
+                {empty ?? t('common.nothingToShow')}
             </p>
         );
     }
 
     return (
         <div style={{ width: '100%', overflowX: 'auto', ...style }}>
-            <table style={{ width: '100%', minWidth, textAlign: 'left', fontSize: 'var(--text-13)' }}>
+            <table style={{ width: '100%', minWidth, textAlign: 'left', fontSize: 'var(--text-12)' }}>
                 <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         {columns.map((c) => (

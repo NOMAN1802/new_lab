@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '@/i18n/useLanguage';
 import type { CSSProperties, ChangeEvent, ReactNode } from 'react';
 import Icon from './Icon';
 import type { IconName } from './Icon';
@@ -43,6 +44,7 @@ const TextField = ({
     style,
     ...rest
 }: TextFieldProps) => {
+    const t = useT();
     const [focus, setFocus] = useState(false);
     const [reveal, setReveal] = useState(false);
     const isPassword = type === 'password';
@@ -54,7 +56,7 @@ const TextField = ({
             {label && (
                 <label htmlFor={inputId} style={{ font: 'var(--type-label)', color: 'var(--text-body)', marginBottom: '2px' }}>
                     {label}
-                    {optional && <span style={{ color: 'var(--text-faint)', fontWeight: 'var(--fw-regular)' as CSSProperties['fontWeight'] }}> (optional)</span>}
+                    {optional && <span style={{ color: 'var(--text-faint)', fontWeight: 'var(--fw-regular)' as CSSProperties['fontWeight'] }}> {t('ctrl.optionalSuffix')}</span>}
                 </label>
             )}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>

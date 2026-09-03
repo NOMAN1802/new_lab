@@ -10,7 +10,7 @@ type GaugeMeterProps = {
 };
 
 /** Ticked semicircle for a rate: collection rate, repeat-patient rate. */
-const GaugeMeter = ({ value = 0, caption, color = 'var(--accent)', ticks = 44, size = 220, style }: GaugeMeterProps) => {
+const GaugeMeter = ({ value = 0, caption, color = 'var(--chart-1)', ticks = 44, size = 220, style }: GaugeMeterProps) => {
     const pct = Math.max(0, Math.min(100, value));
     const lit = Math.round((pct / 100) * ticks);
     const r = size / 2 - 8;
@@ -38,7 +38,7 @@ const GaugeMeter = ({ value = 0, caption, color = 'var(--accent)', ticks = 44, s
                                 stroke={on ? color : 'var(--chart-track)'}
                                 strokeWidth="3"
                                 strokeLinecap="round"
-                                opacity={on ? 0.35 + 0.65 * (i / ticks) : 1}
+                                opacity={on ? 0.55 + 0.45 * (i / ticks) : 1}
                             />
                         );
                     })}

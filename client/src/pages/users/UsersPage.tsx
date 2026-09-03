@@ -14,6 +14,7 @@ import InlineAlert from '@/components/ui/InlineAlert';
 import Modal from '@/components/ui/Modal';
 import PageHero from '@/components/ui/PageHero';
 import Pagination from '@/components/ui/Pagination';
+import { useT } from '@/i18n/useLanguage';
 import Panel from '@/components/ui/Panel';
 import RoleBadge from '@/components/ui/RoleBadge';
 import Select from '@/components/ui/Select';
@@ -63,6 +64,7 @@ const legend = (icon: IconName, text: string) => (
 const UsersPage = () => {
     const currentUser = useAppSelector((state) => state.auth.user);
     const [page, setPage] = useState(1);
+    const t = useT();
     const [viewing, setViewing] = useState<User | null>(null);
     const [isAddOpen, setAddOpen] = useState(false);
     const [formData, setFormData] = useState<CreateUserInput>(EMPTY_FORM);
@@ -80,10 +82,10 @@ const UsersPage = () => {
         return data.users.filter((user) => user._id !== currentUser._id);
     }, [data?.users, currentUser?._id]);
 
-    if (isLoading) return <Loader fullScreen message="Loading users..." />;
+    if (isLoading) return <Loader fullScreen message={t('ld.users')} />;
 
     if (isError || !data) {
-        return <ErrorState title="Unable to load users" description="Check your network or try refreshing the page." onRetry={refetch} />;
+        return <ErrorState title={t('err.users')} description={t('err.network')} onRetry={refetch} />;
     }
 
     const handleDelete = async (userId: string, userName: string) => {
@@ -143,8 +145,8 @@ const UsersPage = () => {
         <>
             <PageHero
                 eyebrow="Administration"
-                title="User management"
-                description="Manage system users and their permissions."
+                title={t('users.title')}
+                description={t('users.subtitle')}
                 action={
                     <button
                         type="button"
@@ -167,7 +169,7 @@ const UsersPage = () => {
                         }}
                     >
                         <Icon name="plus" size={18} />
-                        Add user
+                        {t('jsx.addUser')}
                     </button>
                 }
             />
@@ -175,7 +177,7 @@ const UsersPage = () => {
             <Panel padding="0">
                 <DataTable<User & { id: string }>
                     minWidth="60rem"
-                    empty="No users found."
+                    empty={t('empty.users')}
                     rows={users.map((user) => ({ ...user, id: user._id }))}
                     columns={[
                         {
@@ -187,7 +189,7 @@ const UsersPage = () => {
                         },
                         {
                             key: 'name',
-                            header: 'User',
+                            header: t('col.user'),
                             render: (user) => (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <Avatar name={user.name} solid />
@@ -203,12 +205,12 @@ const UsersPage = () => {
                         { key: 'email', header: 'Email' },
                         {
                             key: 'mobileNumber',
-                            header: 'Mobile',
+                            header: t('col.mobile'),
                             render: (user) => <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{user.mobileNumber}</span>,
                         },
                         {
                             key: 'role',
-                            header: 'Role',
+                            header: t('col.role'),
                             render: (user) => (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <RoleBadge role={user.role} />
@@ -226,10 +228,10 @@ const UsersPage = () => {
                                 </div>
                             ),
                         },
-                        { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.status} /> },
+                        { key: 'status', header: t('col.status'), render: (user) => <StatusBadge status={user.status} /> },
                         {
                             key: 'createdAt',
-                            header: 'Created',
+                            header: t('col.created'),
                             render: (user) => (
                                 <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                     {user.createdAt ? dayjs(user.createdAt).format('D MMM YYYY') : '—'}
@@ -238,14 +240,14 @@ const UsersPage = () => {
                         },
                         {
                             key: 'actions',
-                            header: 'Actions',
+                            header: t('col.actions'),
                             align: 'right',
                             render: (user) => (
                                 <span style={{ display: 'inline-flex', gap: 8, justifyContent: 'flex-end' }}>
                                     <button
                                         type="button"
                                         onClick={() => setViewing(user)}
-                                        title="View user details"
+                                        title={t('ttl.viewUser')}
                                         style={iconAction('var(--brand-light)', 'var(--brand-dark)', true)}
                                     >
                                         <Icon name="eye" size={16} />
@@ -276,7 +278,7 @@ const UsersPage = () => {
             <Modal
                 open={Boolean(viewing)}
                 onClose={() => setViewing(null)}
-                title="User details"
+                title={t('users.details')}
                 width={680}
                 footer={<Button onClick={() => setViewing(null)}>Close</Button>}
             >
@@ -300,18 +302,18 @@ const UsersPage = () => {
                             </div>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 12 }}>
-                            <DetailRow icon="user-round" label="Full name" value={viewing.name} />
-                            <DetailRow icon="mail" label="Email address" value={viewing.email} />
-                            <DetailRow icon="phone" label="Mobile number" value={viewing.mobileNumber} />
-                            <DetailRow icon="shield-check" label="Account role" value={viewing.role} />
+                            <DetailRow icon="user-round" label={t('pform.fullName')} value={viewing.name} />
+                            <DetailRow icon="mail" label={t('fld.emailAddress')} value={viewing.email} />
+                            <DetailRow icon="phone" label={t('fld.mobileNumber')} value={viewing.mobileNumber} />
+                            <DetailRow icon="shield-check" label={t('fld.accountRole')} value={viewing.role} />
                             <DetailRow
                                 icon="calendar"
-                                label="Member since"
+                                label={t('fld.memberSince')}
                                 value={viewing.createdAt ? dayjs(viewing.createdAt).format('D MMM YYYY') : '—'}
                             />
                             <DetailRow
                                 icon="clock"
-                                label="Last updated"
+                                label={t('fld.lastUpdated')}
                                 value={viewing.updatedAt ? dayjs(viewing.updatedAt).format('D MMM YYYY') : '—'}
                             />
                         </div>
@@ -322,13 +324,13 @@ const UsersPage = () => {
             <Modal
                 open={isAddOpen}
                 onClose={() => setAddOpen(false)}
-                title="Add new user"
-                subtitle="Create a receptionist or admin account"
+                title={t('ttl.addUser')}
+                subtitle={t('ttl.createAccount')}
                 width={640}
                 footer={
                     <>
                         <Button variant="secondary" icon="x" disabled={isCreating} onClick={() => setAddOpen(false)}>
-                            Cancel
+                            {t('ctrl.cancel')}
                         </Button>
                         <Button icon="check" loading={isCreating} onClick={handleCreateUser}>
                             {isCreating ? 'Creating...' : 'Create user'}
@@ -343,7 +345,7 @@ const UsersPage = () => {
                         </InlineAlert>
                     )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
-                        <TextField label={legend('user-round', 'Full name')} value={formData.name} onChange={setField('name')} placeholder="Enter full name" />
+                        <TextField label={legend('user-round', 'Full name')} value={formData.name} onChange={setField('name')} placeholder={t('ph.fullName')} />
                         <TextField
                             label={legend('phone', 'Mobile number')}
                             type="tel"
@@ -364,15 +366,15 @@ const UsersPage = () => {
                         type="password"
                         value={formData.password}
                         onChange={setField('password')}
-                        placeholder="At least 6 characters"
-                        hint="The user can change it from Settings after signing in."
+                        placeholder={t('ph.min6')}
+                        hint={t('hint.userPassword')}
                     />
                     <Select
                         label={legend('shield-check', 'Role')}
                         value={formData.role}
                         onChange={setField('role')}
                         options={ROLE_OPTIONS}
-                        hint="Receptionists get operational access only — no financial figures."
+                        hint={t('hint.role')}
                     />
                 </div>
             </Modal>

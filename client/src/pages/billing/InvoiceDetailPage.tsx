@@ -6,15 +6,18 @@ import Loader from '@/components/common/Loader';
 import StatusBadge from '@/components/common/StatusBadge';
 import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
+import Icon from '@/components/ui/Icon';
 import InlineAlert from '@/components/ui/InlineAlert';
 import Panel from '@/components/ui/Panel';
 import TextField from '@/components/ui/TextField';
 import { useRole } from '@/hooks/useRole';
+import { useT } from '@/i18n/useLanguage';
+import { useReportPreview } from '@/hooks/useReportPreview';
+import ReportPreviewModal from '@/components/common/ReportPreviewModal';
 import { apiErrorMessage, commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
 import {
     useCancelInvoiceMutation,
     useGetInvoiceQuery,
-    useGetReportLinkMutation,
     useMarkReportDeliveredMutation,
     useUploadReportMutation,
 } from '@/services/invoicesApi';
@@ -42,10 +45,24 @@ const linkButton = (color: string): React.CSSProperties => ({
     color,
 });
 
+const actionIconStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 30,
+    height: 30,
+    border: 0,
+    background: 'transparent',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    transition: 'var(--transition-control)',
+};
+
 const InvoiceDetailPage = () => {
     const { id } = useParams();
     const { isAdmin } = useRole();
     const navigate = useNavigate();
+    const t = useT();
 
     const { data: invoice, isLoading, isError, refetch } = useGetInvoiceQuery(id!);
     const { data: payments = [] } = useGetInvoicePaymentsQuery(id!);
@@ -54,7 +71,7 @@ const InvoiceDetailPage = () => {
     const [voidPayment] = useVoidPaymentMutation();
     const [uploadReport, { isLoading: isUploading }] = useUploadReportMutation();
     const [markDelivered] = useMarkReportDeliveredMutation();
-    const [getReportLink] = useGetReportLinkMutation();
+    const { preview, openPreview, closePreview, downloadReport, downloadPreview } = useReportPreview();
     const [cancelInvoice] = useCancelInvoiceMutation();
 
     const [amount, setAmount] = useState('');
@@ -62,9 +79,9 @@ const InvoiceDetailPage = () => {
     const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    if (isLoading) return <Loader message="Loading invoice..." />;
+    if (isLoading) return <Loader message={t('inv.loading')} />;
     if (isError || !invoice) {
-        return <ErrorState title="Could not load invoice" description="This invoice is unavailable." onRetry={refetch} />;
+        return <ErrorState title={t('inv.loadError')} description={t('err.invoiceGone')} onRetry={refetch} />;
     }
 
     const handlePayment = async (event: React.FormEvent) => {
@@ -125,14 +142,16 @@ const InvoiceDetailPage = () => {
         }
     };
 
-    const handleDownload = async (itemId: string) => {
-        try {
-            const { url } = await getReportLink({ invoiceId: invoice._id, itemId }).unwrap();
-            window.open(url, '_blank', 'noopener,noreferrer');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not open the report'));
-        }
-    };
+    /** The stored name if we have it, else something recognisable on disk. */
+    const reportName = (item?: InvoiceItem) =>
+        item?.reportFile?.originalName ?? `${invoice.patientInfo.name} - ${item?.testName ?? 'report'}`;
+
+    const reportTarget = (item: InvoiceItem) => ({
+        invoiceId: invoice._id,
+        itemId: item._id,
+        fileName: reportName(item),
+        caption: `${invoice.patientInfo.name} · ${item.testName} · ${invoice.invoiceNumber}`,
+    });
 
     const handleDeliver = async (itemId: string) => {
         try {
@@ -167,15 +186,17 @@ const InvoiceDetailPage = () => {
                 hidden
             />
 
+            <ReportPreviewModal preview={preview} onClose={closePreview} onDownload={downloadPreview} />
+
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-heading)' }}>
+                        <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--text-heading)' }}>
                             {invoice.invoiceNumber}
                         </h2>
                         <StatusBadge status={invoice.isCancelled ? 'cancelled' : invoice.paymentStatus} />
                     </div>
-                    <p style={{ marginTop: 4, fontSize: 13, color: 'var(--text-muted)' }}>
+                    <p style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
                         {formatDate(invoice.visitDate)} ·{' '}
                         <Link to={`/patients/${patientId}`} style={{ fontWeight: 600 }}>
                             {invoice.patientInfo.name}
@@ -186,11 +207,11 @@ const InvoiceDetailPage = () => {
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <Button variant="secondary" icon="printer" onClick={() => navigate(`/billing/${invoice._id}/print`)}>
-                        Print
+                        {t('ctrl.print')}
                     </Button>
                     {isAdmin && !invoice.isCancelled && invoice.paidAmount === 0 && (
                         <Button variant="danger" onClick={handleCancel}>
-                            Cancel invoice
+                            {t('inv.cancelInvoice')}
                         </Button>
                     )}
                 </div>
@@ -204,14 +225,14 @@ const InvoiceDetailPage = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px,1fr))', gap: 'var(--gap-grid)', alignItems: 'start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
-                    <Panel title="Tests & reports" padding="var(--pad-panel) var(--pad-panel) 8px">
+                    <Panel title={t('inv.testsReports')} padding="var(--pad-panel) var(--pad-panel) 8px">
                         <DataTable<InvoiceItem & { id: string }>
                             minWidth="36rem"
                             rows={invoice.items.map((item) => ({ ...item, id: item._id }))}
                             columns={[
                                 {
                                     key: 'testName',
-                                    header: 'Test',
+                                    header: t('col.test'),
                                     render: (item) => (
                                         <span>
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--brand)' }}>
@@ -221,39 +242,73 @@ const InvoiceDetailPage = () => {
                                         </span>
                                     ),
                                 },
-                                { key: 'price', header: 'Price', align: 'right', render: (item) => money(item.price) },
+                                { key: 'price', header: t('col.price'), align: 'right', render: (item) => money(item.price) },
                                 {
                                     key: 'reportStatus',
-                                    header: 'Report',
+                                    header: t('col.report'),
                                     render: (item) => <StatusBadge status={REPORT_BADGE[item.reportStatus] ?? item.reportStatus} />,
                                 },
                                 {
                                     key: 'actions',
-                                    header: 'Actions',
+                                    header: t('col.actions'),
                                     align: 'right',
                                     render: (item) => (
-                                        <span style={{ display: 'inline-flex', gap: 12, justifyContent: 'flex-end' }}>
+                                        <span style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
                                             {item.reportFile && (
-                                                <button type="button" onClick={() => handleDownload(item._id)} style={linkButton('var(--brand)')}>
-                                                    View
-                                                </button>
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`View report for ${item.testName}`}
+                                                        title={t('ttl.viewReport')}
+                                                        onClick={() => openPreview(reportTarget(item))}
+                                                        style={{ ...actionIconStyle, color: 'var(--brand)' }}
+                                                    >
+                                                        <Icon name="eye" size={16} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`Download report for ${item.testName}`}
+                                                        title={t('ttl.downloadReport')}
+                                                        onClick={() => downloadReport(reportTarget(item))}
+                                                        style={{ ...actionIconStyle, color: 'var(--text-muted)' }}
+                                                    >
+                                                        <Icon name="download" size={16} />
+                                                    </button>
+                                                </>
                                             )}
                                             {!invoice.isCancelled && (
                                                 <button
                                                     type="button"
                                                     disabled={isUploading}
+                                                    aria-label={item.reportFile ? `Replace report for ${item.testName}` : `Upload report for ${item.testName}`}
                                                     onClick={() => {
                                                         setUploadingItemId(item._id);
                                                         fileInputRef.current?.click();
                                                     }}
-                                                    style={{ ...linkButton('var(--text-muted)'), opacity: isUploading ? 0.5 : 1 }}
+                                                    style={{ ...actionIconStyle, color: 'var(--text-muted)', opacity: isUploading ? 0.5 : 1 }}
                                                 >
-                                                    {item.reportFile ? 'Replace' : 'Upload'}
+                                                    <Icon name="upload" size={16} />
                                                 </button>
                                             )}
                                             {item.reportStatus === 'uploaded' && (
-                                                <button type="button" onClick={() => handleDeliver(item._id)} style={linkButton('var(--success-strong)')}>
-                                                    Delivered
+                                                <button
+                                                    type="button"
+                                                    disabled={invoice.dueAmount > 0}
+                                                    aria-label={`Mark ${item.testName} delivered`}
+                                                    title={
+                                                        invoice.dueAmount > 0
+                                                            ? `${money(invoice.dueAmount)} still due — collect it before handing the report over`
+                                                            : `Mark ${item.testName} delivered`
+                                                    }
+                                                    onClick={() => handleDeliver(item._id)}
+                                                    style={{
+                                                        ...actionIconStyle,
+                                                        color: 'var(--success-strong)',
+                                                        opacity: invoice.dueAmount > 0 ? 0.4 : 1,
+                                                        cursor: invoice.dueAmount > 0 ? 'not-allowed' : 'pointer',
+                                                    }}
+                                                >
+                                                    <Icon name="circle-check" size={16} />
                                                 </button>
                                             )}
                                         </span>
@@ -263,7 +318,7 @@ const InvoiceDetailPage = () => {
                         />
                     </Panel>
 
-                    <Panel title="Payment history" subtitle="Receipts stay on the ledger even when voided">
+                    <Panel title={t('inv.paymentHistory')} subtitle={t('inv.paymentHistorySub')}>
                         {payments.length === 0 ? (
                             <p
                                 style={{
@@ -271,11 +326,11 @@ const InvoiceDetailPage = () => {
                                     borderRadius: 'var(--radius-md)',
                                     padding: 'var(--space-8)',
                                     textAlign: 'center',
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: 'var(--text-muted)',
                                 }}
                             >
-                                No payments recorded yet.
+                                {t('inv.noPayments')}
                             </p>
                         ) : (
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -291,7 +346,7 @@ const InvoiceDetailPage = () => {
                                             background: payment.isVoided ? 'var(--danger-bg)' : 'var(--surface-sunken)',
                                             borderRadius: 'var(--radius-md)',
                                             padding: '10px 14px',
-                                            fontSize: 13,
+                                            fontSize: 12,
                                             textDecoration: payment.isVoided ? 'line-through' : 'none',
                                             opacity: payment.isVoided ? 0.7 : 1,
                                         }}
@@ -313,7 +368,7 @@ const InvoiceDetailPage = () => {
                                                     onClick={() => handleVoid(payment._id, payment.receiptNumber)}
                                                     style={linkButton('var(--danger-strong)')}
                                                 >
-                                                    Void
+                                                    {t('inv.void')}
                                                 </button>
                                             )}
                                         </div>
@@ -325,7 +380,7 @@ const InvoiceDetailPage = () => {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)', position: 'sticky', top: 'calc(var(--topbar-h) + 16px)' }}>
-                    <Panel title="Billing">
+                    <Panel title={t('inv.billing')}>
                         {invoice.referrerInfo && (
                             <p
                                 style={{
@@ -333,11 +388,11 @@ const InvoiceDetailPage = () => {
                                     background: 'var(--warning-bg)',
                                     borderRadius: 'var(--radius-md)',
                                     padding: '10px 14px',
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: 'var(--text-body)',
                                 }}
                             >
-                                Referred by <strong style={{ color: 'var(--text-heading)' }}>{invoice.referrerInfo.name}</strong>
+                                {t('inv.referredBy')} <strong style={{ color: 'var(--text-heading)' }}>{invoice.referrerInfo.name}</strong>
                                 {invoice.referrerInfo.hospital ? ` · ${invoice.referrerInfo.hospital}` : ''}
                             </p>
                         )}
@@ -407,7 +462,7 @@ const InvoiceDetailPage = () => {
                                     }}
                                 >
                                     <dt>
-                                        Referrer commission ({commissionBasis(invoice.commissionType, invoice.commissionValue)}) ·{' '}
+                                        {t('inv.referrerCommission')} ({commissionBasis(invoice.commissionType, invoice.commissionValue)}) ·{' '}
                                         {invoice.commissionStatus}
                                     </dt>
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>{money(invoice.commissionAmount)}</dd>
@@ -417,11 +472,11 @@ const InvoiceDetailPage = () => {
                     </Panel>
 
                     {!invoice.isCancelled && invoice.dueAmount > 0 && (
-                        <Panel title="Take cash payment" style={{ borderColor: 'var(--teal-200)' }}>
+                        <Panel title={t('inv.takeCash')} style={{ borderColor: 'var(--teal-200)' }}>
                             <form onSubmit={handlePayment} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <TextField
-                                        label="Amount (৳)"
+                                        label={t('fld.amountTk')}
                                         type="number"
                                         min="0.01"
                                         max={invoice.dueAmount}
@@ -439,7 +494,7 @@ const InvoiceDetailPage = () => {
                                     </button>
                                 </div>
 
-                                <TextField label="Note" optional value={note} onChange={(e) => setNote(e.target.value)} />
+                                <TextField label={t('inv.note')} optional value={note} onChange={(e) => setNote(e.target.value)} />
 
                                 <Button type="submit" variant="accent" block loading={isPaying}>
                                     {isPaying ? 'Recording...' : 'Record payment'}
