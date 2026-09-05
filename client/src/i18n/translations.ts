@@ -576,6 +576,35 @@ export const translations = {
     'crep.commissionAwaiting': { en: 'Commission awaiting settlement', bn: 'পরিশোধের অপেক্ষায় কমিশন' },
     'crep.awaitingNote': { en: 'Accrued on unpaid invoices — payable once the patient settles.', bn: 'অপরিশোধিত ইনভয়েসে জমা — রোগী পরিশোধ করলে দেওয়া হবে।' },
 
+    'comm.recordPayout': { en: 'Record payout of', bn: 'পরিশোধ রেকর্ড করুন' },
+    'comm.recording': { en: 'Recording...', bn: 'রেকর্ড হচ্ছে...' },
+    'comm.noReversal': { en: 'A payout cannot be reversed — cancel the invoice instead if a booking was wrong.', bn: 'পরিশোধ ফেরানো যায় না — বুকিং ভুল হলে ইনভয়েসটি বাতিল করুন।' },
+    'crep.rate': { en: 'Rate', bn: 'হার' },
+
+    // ---- Reason dialog ----
+    'reason.label': { en: 'Reason', bn: 'কারণ' },
+    'reason.placeholder': { en: 'Say what happened', bn: 'কী হয়েছে লিখুন' },
+    'reason.hint': { en: 'Kept on the record and shown in the activity log.', bn: 'রেকর্ডে থাকবে এবং কার্যক্রম লগে দেখা যাবে।' },
+
+    'inv.cancelTestTitle': { en: 'Cancel {test}', bn: '{test} বাতিল করুন' },
+    'inv.cancelTestBody': { en: 'The test stays on the invoice, struck through, and drops out of the totals.', bn: 'পরীক্ষাটি ইনভয়েসে কাটা অবস্থায় থাকবে এবং মোট থেকে বাদ যাবে।' },
+    'inv.cancelTestConfirm': { en: 'Cancel test', bn: 'পরীক্ষা বাতিল' },
+
+    'inv.voidTitle': { en: 'Void receipt {receipt}', bn: 'রসিদ {receipt} বাতিল করুন' },
+    'inv.voidBody': { en: 'The receipt stays on the ledger, marked void.', bn: 'রসিদটি বাতিল চিহ্নিত হয়ে খাতায় থেকে যাবে।' },
+    'inv.voidWarning': { en: 'The amount goes back onto the due balance.', bn: 'পরিমাণটি আবার বকেয়ায় যোগ হবে।' },
+    'inv.voidConfirm': { en: 'Void receipt', bn: 'রসিদ বাতিল' },
+
+    'inv.cancelInvoiceTitle': { en: 'Cancel {invoice}', bn: '{invoice} বাতিল করুন' },
+    'inv.cancelInvoiceBody': { en: 'The invoice is kept but marked cancelled, and leaves every report.', bn: 'ইনভয়েসটি বাতিল চিহ্নিত হয়ে থাকবে এবং সব রিপোর্ট থেকে বাদ যাবে।' },
+    'inv.cancelInvoiceWarning': { en: 'This cannot be undone.', bn: 'এটি ফেরানো যাবে না।' },
+    'inv.cancelInvoiceConfirm': { en: 'Cancel invoice', bn: 'ইনভয়েস বাতিল' },
+
+    'inv.paymentVoided': { en: 'Payment voided', bn: 'পেমেন্ট বাতিল হয়েছে' },
+    'inv.voidFailed': { en: 'Could not void the payment', bn: 'পেমেন্ট বাতিল করা যায়নি' },
+    'inv.invoiceCancelled': { en: 'Invoice cancelled', bn: 'ইনভয়েস বাতিল হয়েছে' },
+    'inv.cancelInvoiceFailed': { en: 'Could not cancel the invoice', bn: 'ইনভয়েস বাতিল করা যায়নি' },
+
     // ---- Status vocabulary ----
     'status.paid': { en: 'Paid', bn: 'পরিশোধিত' },
     'status.unpaid': { en: 'Unpaid', bn: 'অপরিশোধিত' },

@@ -208,7 +208,7 @@ const getPendingCommission = async (referrerId: string) => {
 
   const [invoices, awaiting] = await Promise.all([
     Invoice.find(pendingCommissionFilter(referrerId))
-      .select('invoiceNumber visitDate netPayable commissionPercent commissionAmount')
+      .select('invoiceNumber visitDate netPayable commissionType commissionValue commissionAmount')
       .sort({ visitDate: 1 }),
     Invoice.find(awaitingSettlementFilter(referrerId)).select(
       'invoiceNumber visitDate netPayable dueAmount commissionAmount'

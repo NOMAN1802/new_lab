@@ -28,6 +28,9 @@ const CommissionPayoutsPage = () => {
 
     const [createPayout, { isLoading: isPaying }] = useCreateCommissionPayoutMutation();
 
+    // Only settled invoices can be paid out, so this is what gates the control.
+    const payable = (pending?.invoices.length ?? 0) > 0;
+
     const referrers = referrerData?.items ?? [];
     const payouts = payoutData?.items ?? [];
 
@@ -160,7 +163,7 @@ const CommissionPayoutsPage = () => {
                                                 { key: 'netPayable', header: t('col.net'), align: 'right', render: (invoice) => money(invoice.netPayable) },
                                                 {
                                                     key: 'rate',
-                                                    header: 'Rate',
+                                                    header: t('crep.rate'),
                                                     align: 'right',
                                                     render: (invoice) => (
                                                         <span style={{ color: 'var(--text-muted)' }}>
@@ -182,26 +185,47 @@ const CommissionPayoutsPage = () => {
                                         />
                                     </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                                        <TextField
-                                            label={t('inv.note')}
-                                            optional
-                                            value={note}
-                                            onChange={(e) => setNote(e.target.value)}
-                                            placeholder={t('ph.paidCash')}
-                                            hint={t('hint.payoutNote')}
-                                            style={{ flex: 1, minWidth: 260 }}
-                                        />
-                                        <Button variant="accent" icon="circle-check" loading={isPaying} onClick={handlePayout} style={{ height: 'var(--control-h)' }}>
-                                            {isPaying ? 'Recording...' : `Record payout of ${money(pending.totalPending)}`}
-                                        </Button>
-                                    </div>
-
-                                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
-                                        <Icon name="info" size={14} />A payout cannot be reversed — cancel the invoice instead if a booking was wrong.
-                                    </p>
                                 </>
                             )}
+
+                            {/*
+                              The payout control stays put whether or not anything
+                              is payable, and disables instead of disappearing: a
+                              button that only exists sometimes reads as a bug, and
+                              the disabled state is where the rule gets explained.
+                            */}
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                                <TextField
+                                    label={t('inv.note')}
+                                    optional
+                                    disabled={!payable}
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder={t('ph.paidCash')}
+                                    hint={t('hint.payoutNote')}
+                                    style={{ flex: 1, minWidth: 260 }}
+                                />
+                                <Button
+                                    variant="accent"
+                                    icon="circle-check"
+                                    loading={isPaying}
+                                    disabled={!payable}
+                                    title={payable ? undefined : t('comm.payableRule')}
+                                    onClick={handlePayout}
+                                    style={{ height: 'var(--control-h)' }}
+                                >
+                                    {isPaying
+                                        ? t('comm.recording')
+                                        : payable
+                                          ? `${t('comm.recordPayout')} ${money(pending.totalPending)}`
+                                          : t('comm.nothingPayable')}
+                                </Button>
+                            </div>
+
+                            <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
+                                <Icon name="info" size={14} />
+                                {t('comm.noReversal')}
+                            </p>
                         </>
                     )}
                 </div>

@@ -14,6 +14,8 @@ import { useRole } from '@/hooks/useRole';
 import { useT } from '@/i18n/useLanguage';
 import { useReportPreview } from '@/hooks/useReportPreview';
 import ReportPreviewModal from '@/components/common/ReportPreviewModal';
+import ReasonModal from '@/components/common/ReasonModal';
+import type { ReasonRequest } from '@/components/common/ReasonModal';
 import { apiErrorMessage, commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
 import {
     useCancelInvoiceItemMutation,
@@ -69,16 +71,21 @@ const InvoiceDetailPage = () => {
     const { data: payments = [] } = useGetInvoicePaymentsQuery(id!);
 
     const [createPayment, { isLoading: isPaying }] = useCreatePaymentMutation();
-    const [voidPayment] = useVoidPaymentMutation();
+    const [voidPayment, { isLoading: isVoiding }] = useVoidPaymentMutation();
     const [uploadReport, { isLoading: isUploading }] = useUploadReportMutation();
     const [markDelivered] = useMarkReportDeliveredMutation();
     const { preview, openPreview, closePreview, downloadReport, downloadPreview } = useReportPreview();
-    const [cancelInvoice] = useCancelInvoiceMutation();
+    const [cancelInvoice, { isLoading: isCancellingInvoice }] = useCancelInvoiceMutation();
     const [cancelInvoiceItem, { isLoading: isCancellingItem }] = useCancelInvoiceItemMutation();
 
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
     const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+    /**
+     * The three actions here that need a written reason share one dialog, so
+     * only the request differs. Null means it is closed.
+     */
+    const [reasonRequest, setReasonRequest] = useState<ReasonRequest | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (isLoading) return <Loader message={t('inv.loading')} />;
@@ -115,17 +122,22 @@ const InvoiceDetailPage = () => {
         }
     };
 
-    const handleVoid = async (paymentId: string, receiptNumber: string) => {
-        const reason = window.prompt(`Void receipt ${receiptNumber}? The invoice due will go back up.\n\nReason:`);
-        if (!reason?.trim()) return;
-
-        try {
-            await voidPayment({ id: paymentId, reason: reason.trim(), invoiceId: invoice._id }).unwrap();
-            toast.success('Payment voided');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not void the payment'));
-        }
-    };
+    const handleVoid = (paymentId: string, receiptNumber: string) =>
+        setReasonRequest({
+            title: t('inv.voidTitle').replace('{receipt}', receiptNumber),
+            description: t('inv.voidBody'),
+            warning: t('inv.voidWarning'),
+            confirmLabel: t('inv.voidConfirm'),
+            onConfirm: async (reason) => {
+                try {
+                    await voidPayment({ id: paymentId, reason, invoiceId: invoice._id }).unwrap();
+                    toast.success(t('inv.paymentVoided'));
+                    setReasonRequest(null);
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, t('inv.voidFailed')));
+                }
+            },
+        });
 
     const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -159,21 +171,21 @@ const InvoiceDetailPage = () => {
      * Calls off one test. The reason is required by the API and shows in the
      * activity log, so it is asked for rather than defaulted.
      */
-    const handleCancelItem = async (item: InvoiceItem) => {
-        const reason = window.prompt(t('inv.cancelTestPrompt').replace('{test}', item.testName));
-        if (!reason?.trim()) return;
-
-        try {
-            await cancelInvoiceItem({
-                invoiceId: invoice._id,
-                itemId: item._id,
-                reason: reason.trim(),
-            }).unwrap();
-            toast.success(t('inv.testCancelled'));
-        } catch (error) {
-            toast.error(apiErrorMessage(error, t('inv.cancelTestFailed')));
-        }
-    };
+    const handleCancelItem = (item: InvoiceItem) =>
+        setReasonRequest({
+            title: t('inv.cancelTestTitle').replace('{test}', item.testName),
+            description: t('inv.cancelTestBody'),
+            confirmLabel: t('inv.cancelTestConfirm'),
+            onConfirm: async (reason) => {
+                try {
+                    await cancelInvoiceItem({ invoiceId: invoice._id, itemId: item._id, reason }).unwrap();
+                    toast.success(t('inv.testCancelled'));
+                    setReasonRequest(null);
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, t('inv.cancelTestFailed')));
+                }
+            },
+        });
 
     const handleDeliver = async (itemId: string) => {
         try {
@@ -184,17 +196,22 @@ const InvoiceDetailPage = () => {
         }
     };
 
-    const handleCancel = async () => {
-        const reason = window.prompt('Why is this invoice being cancelled?');
-        if (!reason?.trim()) return;
-
-        try {
-            await cancelInvoice({ id: invoice._id, reason: reason.trim() }).unwrap();
-            toast.success('Invoice cancelled');
-        } catch (error) {
-            toast.error(apiErrorMessage(error, 'Could not cancel the invoice'));
-        }
-    };
+    const handleCancel = () =>
+        setReasonRequest({
+            title: t('inv.cancelInvoiceTitle').replace('{invoice}', invoice.invoiceNumber),
+            description: t('inv.cancelInvoiceBody'),
+            warning: t('inv.cancelInvoiceWarning'),
+            confirmLabel: t('inv.cancelInvoiceConfirm'),
+            onConfirm: async (reason) => {
+                try {
+                    await cancelInvoice({ id: invoice._id, reason }).unwrap();
+                    toast.success(t('inv.invoiceCancelled'));
+                    setReasonRequest(null);
+                } catch (error) {
+                    toast.error(apiErrorMessage(error, t('inv.cancelInvoiceFailed')));
+                }
+            },
+        });
 
     const patientId = typeof invoice.patient === 'string' ? invoice.patient : invoice.patient._id;
 
@@ -209,6 +226,12 @@ const InvoiceDetailPage = () => {
             />
 
             <ReportPreviewModal preview={preview} onClose={closePreview} onDownload={downloadPreview} />
+
+            <ReasonModal
+                request={reasonRequest}
+                busy={isCancellingItem || isVoiding || isCancellingInvoice}
+                onClose={() => setReasonRequest(null)}
+            />
 
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div>
