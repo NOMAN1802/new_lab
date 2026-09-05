@@ -6,6 +6,7 @@ import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
+import InlineAlert from '@/components/ui/InlineAlert';
 import Panel from '@/components/ui/Panel';
 import { useT } from '@/i18n/useLanguage';
 import Select from '@/components/ui/Select';
@@ -26,6 +27,9 @@ const CommissionPayoutsPage = () => {
     const { data: pending, isFetching: loadingPending } = useGetPendingCommissionQuery(referrerId, { skip: !referrerId });
 
     const [createPayout, { isLoading: isPaying }] = useCreateCommissionPayoutMutation();
+
+    // Only settled invoices can be paid out, so this is what gates the control.
+    const payable = (pending?.invoices.length ?? 0) > 0;
 
     const referrers = referrerData?.items ?? [];
     const payouts = payoutData?.items ?? [];
@@ -101,13 +105,24 @@ const CommissionPayoutsPage = () => {
                                         Pending for <strong style={{ color: 'var(--text-heading)' }}>{pending.referrer.name}</strong>
                                     </p>
                                     <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                                        {pending.invoices.length} unsettled {pending.invoices.length === 1 ? 'invoice' : 'invoices'}
+                                        {pending.invoices.length} {t('comm.readyToPay')}
                                     </p>
                                 </div>
                                 <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>
                                     {money(pending.totalPending)}
                                 </p>
                             </div>
+
+                            {pending.awaitingSettlement.invoiceCount > 0 && (
+                                <InlineAlert tone="info">
+                                    {money(pending.awaitingSettlement.total)} {t('comm.awaiting')} ·{' '}
+                                    {pending.awaitingSettlement.invoiceCount}{' '}
+                                    {pending.awaitingSettlement.invoiceCount === 1
+                                        ? t('invoices.one')
+                                        : t('invoices.many')}
+                                    . {t('comm.payableRule')}
+                                </InlineAlert>
+                            )}
 
                             {pending.invoices.length === 0 ? (
                                 <p
@@ -120,7 +135,9 @@ const CommissionPayoutsPage = () => {
                                         color: 'var(--text-muted)',
                                     }}
                                 >
-                                    {t('jsx.nothingOutstandingRef')}
+                                    {pending.awaitingSettlement.invoiceCount > 0
+                                        ? `${t('comm.nothingPayable')} ${t('comm.payableRule')}`
+                                        : t('jsx.nothingOutstandingRef')}
                                 </p>
                             ) : (
                                 <>
@@ -146,7 +163,7 @@ const CommissionPayoutsPage = () => {
                                                 { key: 'netPayable', header: t('col.net'), align: 'right', render: (invoice) => money(invoice.netPayable) },
                                                 {
                                                     key: 'rate',
-                                                    header: 'Rate',
+                                                    header: t('crep.rate'),
                                                     align: 'right',
                                                     render: (invoice) => (
                                                         <span style={{ color: 'var(--text-muted)' }}>
@@ -168,26 +185,47 @@ const CommissionPayoutsPage = () => {
                                         />
                                     </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                                        <TextField
-                                            label={t('inv.note')}
-                                            optional
-                                            value={note}
-                                            onChange={(e) => setNote(e.target.value)}
-                                            placeholder={t('ph.paidCash')}
-                                            hint={t('hint.payoutNote')}
-                                            style={{ flex: 1, minWidth: 260 }}
-                                        />
-                                        <Button variant="accent" icon="circle-check" loading={isPaying} onClick={handlePayout} style={{ height: 'var(--control-h)' }}>
-                                            {isPaying ? 'Recording...' : `Record payout of ${money(pending.totalPending)}`}
-                                        </Button>
-                                    </div>
-
-                                    <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
-                                        <Icon name="info" size={14} />A payout cannot be reversed — cancel the invoice instead if a booking was wrong.
-                                    </p>
                                 </>
                             )}
+
+                            {/*
+                              The payout control stays put whether or not anything
+                              is payable, and disables instead of disappearing: a
+                              button that only exists sometimes reads as a bug, and
+                              the disabled state is where the rule gets explained.
+                            */}
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                                <TextField
+                                    label={t('inv.note')}
+                                    optional
+                                    disabled={!payable}
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder={t('ph.paidCash')}
+                                    hint={t('hint.payoutNote')}
+                                    style={{ flex: 1, minWidth: 260 }}
+                                />
+                                <Button
+                                    variant="accent"
+                                    icon="circle-check"
+                                    loading={isPaying}
+                                    disabled={!payable}
+                                    title={payable ? undefined : t('comm.payableRule')}
+                                    onClick={handlePayout}
+                                    style={{ height: 'var(--control-h)' }}
+                                >
+                                    {isPaying
+                                        ? t('comm.recording')
+                                        : payable
+                                          ? `${t('comm.recordPayout')} ${money(pending.totalPending)}`
+                                          : t('comm.nothingPayable')}
+                                </Button>
+                            </div>
+
+                            <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-faint)' }}>
+                                <Icon name="info" size={14} />
+                                {t('comm.noReversal')}
+                            </p>
                         </>
                     )}
                 </div>

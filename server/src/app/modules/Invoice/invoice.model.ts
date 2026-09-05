@@ -30,6 +30,11 @@ const InvoiceItemSchema = new Schema<TInvoiceItem>({
   },
   reportFile: { type: ReportFileSchema, required: false },
   deliveredAt: { type: Date },
+
+  isCancelled: { type: Boolean, default: false },
+  cancelledAt: { type: Date },
+  cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  cancelReason: { type: String, trim: true },
 });
 
 const InvoiceSchema = new Schema<TInvoice>(

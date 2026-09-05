@@ -27,6 +27,14 @@ export type InvoiceItem = {
     reportStatus: ReportStatus;
     reportFile?: ReportFile;
     deliveredAt?: string;
+
+    /**
+     * A test called off after booking. The line stays on the invoice, struck
+     * through with its reason, and drops out of the totals.
+     */
+    isCancelled?: boolean;
+    cancelledAt?: string;
+    cancelReason?: string;
 };
 
 /**
@@ -156,6 +164,7 @@ export const invoicesApi = baseApi.injectEndpoints({
                 { type: 'Invoices', id: 'LIST' },
                 { type: 'Payments', id: 'LIST' },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
 
@@ -192,6 +201,7 @@ export const invoicesApi = baseApi.injectEndpoints({
                 { type: 'Invoices', id },
                 { type: 'Invoices', id: 'LIST' },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
 
@@ -213,6 +223,26 @@ export const invoicesApi = baseApi.injectEndpoints({
                 { type: 'Invoices', id: invoiceId },
                 { type: 'Invoices', id: 'LIST' },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
+            ],
+        }),
+
+        /** Calls off one test. Both roles; the reason lands in the activity log. */
+        cancelInvoiceItem: builder.mutation<
+            Invoice,
+            { invoiceId: string; itemId: string; reason: string }
+        >({
+            query: ({ invoiceId, itemId, reason }) => ({
+                url: `/invoices/${invoiceId}/items/${itemId}/cancel`,
+                method: 'PATCH',
+                body: { reason },
+            }),
+            transformResponse: (r: ApiResponse<Invoice>) => r.data,
+            invalidatesTags: (_r, _e, { invoiceId }) => [
+                { type: 'Invoices', id: invoiceId },
+                { type: 'Invoices', id: 'LIST' },
+                { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
 
@@ -228,6 +258,7 @@ export const invoicesApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { invoiceId }) => [
                 { type: 'Invoices', id: invoiceId },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
 
@@ -269,6 +300,7 @@ export const {
     useCreateInvoiceMutation,
     useUpdateInvoiceItemsMutation,
     useCancelInvoiceMutation,
+    useCancelInvoiceItemMutation,
     useUploadReportMutation,
     useMarkReportDeliveredMutation,
     useGetReportLinkMutation,

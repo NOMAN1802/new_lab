@@ -10,6 +10,7 @@ export type TActivityAction =
   | 'invoice.created'
   | 'invoice.updated'
   | 'invoice.cancelled'
+  | 'invoice.item_cancelled'
   | 'payment.recorded'
   | 'payment.voided'
   | 'report.uploaded'

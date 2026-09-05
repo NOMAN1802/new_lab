@@ -33,6 +33,11 @@ export type PendingCommission = {
         commissionAmount: number;
     }[];
     totalPending: number;
+    /**
+     * Accrued but not payable: the patient has not settled these yet. Reported
+     * separately so an admin can see why a figure they expected is not offered.
+     */
+    awaitingSettlement: { invoiceCount: number; total: number };
 };
 
 export type CreatePayoutInput = {
@@ -82,7 +87,8 @@ export const commissionPayoutsApi = baseApi.injectEndpoints({
                 { type: 'CommissionPayouts', id: 'LIST' },
                 { type: 'CommissionPayouts', id: `PENDING-${referrer}` },
                 { type: 'Invoices', id: 'LIST' },
-                { type: 'Reports', id: 'COMMISSION' },
+                { type: 'Reports' },
+                { type: 'Dashboard', id: 'ALL' },
             ],
         }),
     }),

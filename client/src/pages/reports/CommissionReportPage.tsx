@@ -23,6 +23,7 @@ const COLUMN_DEFS: { key: TranslationKey; accessor: (row: ReferralCommissionRow)
     { key: 'crep.discountGiven', accessor: (r) => r.discountGiven },
     { key: 'rep.netBilled', accessor: (r) => r.netBilled },
     { key: 'rep.commissionAccrued', accessor: (r) => r.commissionAccrued },
+    { key: 'crep.commissionAwaiting', accessor: (r) => r.commissionAwaiting },
     { key: 'crep.commissionPaid', accessor: (r) => r.commissionPaid },
     { key: 'crep.commissionPending', accessor: (r) => r.commissionPending },
 ];
@@ -63,13 +64,23 @@ const CommissionReportPage = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard label={t('crep.referrers')} value={data.summary.referrers} icon="user-round-search" accent="brand" />
                         <StatCard label={t('rep.discountsGiven')} value={money(data.summary.discountGiven)} icon="percent" accent="neutral" />
-                        <StatCard label={t('rep.commissionAccrued')} value={money(data.summary.commissionAccrued)} icon="banknote" accent="neutral" />
+                        <StatCard
+                            label={t('rep.commissionAccrued')}
+                            value={money(data.summary.commissionAccrued)}
+                            icon="banknote"
+                            accent="neutral"
+                            caption={
+                                data.summary.commissionAwaiting > 0
+                                    ? `+ ${money(data.summary.commissionAwaiting)} ${t('comm.awaiting')}`
+                                    : undefined
+                            }
+                        />
                         <StatCard label={t('crep.commissionPending')} value={money(data.summary.commissionPending)} icon="hourglass" accent="warning" />
                     </div>
 
                     <Panel padding="0">
                         <DataTable<ReferralCommissionRow & { id: string }>
-                            minWidth="62rem"
+                            minWidth="70rem"
                             empty={t('crep.empty')}
                             rows={data.rows.map((row) => ({ ...row, id: row._id }))}
                             columns={[
@@ -105,6 +116,19 @@ const CommissionReportPage = () => {
                                     render: (row) => <span style={{ color: 'var(--text-heading)' }}>{money(row.netBilled)}</span>,
                                 },
                                 { key: 'commissionAccrued', header: t('crep.accrued'), align: 'right', render: (row) => money(row.commissionAccrued) },
+                                {
+                                    key: 'commissionAwaiting',
+                                    header: t('crep.awaiting'),
+                                    align: 'right',
+                                    render: (row) => (
+                                        <span
+                                            style={{ color: row.commissionAwaiting > 0 ? 'var(--text-muted)' : 'var(--text-faint)' }}
+                                            title={t('crep.awaitingNote')}
+                                        >
+                                            {money(row.commissionAwaiting)}
+                                        </span>
+                                    ),
+                                },
                                 {
                                     key: 'commissionPaid',
                                     header: t('col.paid'),

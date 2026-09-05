@@ -45,7 +45,14 @@ const billedIn = async (range: TDateRange) => {
         discount: { $sum: '$discountAmount' },
         net: { $sum: '$netPayable' },
         due: { $sum: '$dueAmount' },
-        commission: { $sum: '$commissionAmount' },
+        // Commission is earned when the patient pays, so an unpaid invoice
+        // contributes none of it — and the revenue tile below subtracts only
+        // what is genuinely owed.
+        commission: {
+          $sum: {
+            $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
+          },
+        },
       },
     },
   ]);
@@ -88,7 +95,15 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
 
     // Commission accrued vs paid vs pending (proposal §4.8).
     Invoice.aggregate([
-      { $match: { ...liveInvoice, ...dateRangeFilter('visitDate', range) } },
+      {
+        $match: {
+          ...liveInvoice,
+          // An unpaid invoice owes the doctor nothing yet, so it stays out of
+          // the split rather than inflating "pending" with money not owed.
+          paymentStatus: 'paid',
+          ...dateRangeFilter('visitDate', range),
+        },
+      },
       {
         $group: {
           _id: '$commissionStatus',
@@ -129,7 +144,11 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
           discount: { $sum: '$discountAmount' },
           net: { $sum: '$netPayable' },
           collected: { $sum: '$paidAmount' },
-          commission: { $sum: '$commissionAmount' },
+          commission: {
+            $sum: {
+              $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
+            },
+          },
         },
       },
       { $sort: { net: -1 } },

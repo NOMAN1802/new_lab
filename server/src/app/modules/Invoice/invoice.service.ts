@@ -15,6 +15,7 @@ import {
 } from '../../utils/fileUpload';
 import { round2 } from '../../utils/money';
 import { recordActivity } from '../ActivityLog/activity-log.service';
+import { CommissionPayout } from '../CommissionPayout/commission-payout.model';
 import { nextSequence } from '../Counter/counter.model';
 import { Patient } from '../Patient/patient.model';
 import { Referrer } from '../Referrer/referrer.model';
@@ -345,6 +346,126 @@ const updateInvoiceItems = async (
   return invoice;
 };
 
+/**
+ * Calls off a single test without touching the rest of the invoice.
+ *
+ * The line is struck, not deleted: the patient was told they were being billed
+ * for it, so it stays on the record with a reason against it and drops out of
+ * the totals. Both roles may do this — a sample that cannot be drawn is a
+ * counter problem, not an accounting one — but every cancellation carries a
+ * reason and lands in the activity log.
+ */
+const cancelInvoiceItem = async (
+  invoiceId: string,
+  itemId: string,
+  userId: string,
+  reason: string
+): Promise<TInvoice> => {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  if (invoice.isCancelled) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This invoice is already cancelled'
+    );
+  }
+
+  const item = invoice.items.find((entry) => String(entry._id) === itemId);
+  if (!item) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Test not found on this invoice');
+  }
+
+  if (item.isCancelled) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'This test is already cancelled');
+  }
+
+  // A report in hand means the work was done, whatever happened afterwards.
+  if (item.reportStatus !== 'pending') {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `The ${item.testName} report has already been ${item.reportStatus}. Cancel the whole invoice instead if this booking should not stand.`
+    );
+  }
+
+  const live = invoice.items.filter(
+    (entry) => !entry.isCancelled && String(entry._id) !== itemId
+  );
+
+  // An invoice with nothing left on it is a cancelled invoice, and that is a
+  // different action with its own record.
+  if (live.length === 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      'This is the only remaining test. Cancel the invoice instead.'
+    );
+  }
+
+  const totals = computeTotals(
+    live,
+    invoice.discountPercent,
+    invoice.commissionType,
+    invoice.commissionValue,
+    invoice.paidAmount
+  );
+
+  // Same rule as reducing an invoice by editing its tests: money already taken
+  // cannot exceed what is owed, or the ledger hides a refund.
+  if (totals.netPayable < invoice.paidAmount) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Cancelling this test would drop the bill to ${totals.netPayable}, below the ${invoice.paidAmount} already collected. Void the excess receipt first.`
+    );
+  }
+
+  /**
+   * Commission already handed over is not rewritten by a later cancellation.
+   *
+   * The centre really did pay that figure, and the CommissionPayout it belongs
+   * to records both the amount and the invoices it covered — recomputing here
+   * would leave the payout no longer equal to the sum of its own invoices, and
+   * under-report what was actually paid out. It stays frozen at what was
+   * settled; recovering the difference is a conversation with the doctor, not
+   * a number that changes behind them.
+   */
+  const commissionSettled = invoice.commissionStatus === 'paid';
+  const applied = commissionSettled
+    ? { ...totals, commissionAmount: invoice.commissionAmount }
+    : totals;
+
+  item.isCancelled = true;
+  item.cancelledAt = new Date();
+  item.cancelledBy = new Types.ObjectId(userId);
+  item.cancelReason = reason;
+
+  invoice.set(applied);
+  await invoice.save();
+
+  await recordActivity({
+    userId,
+    action: 'invoice.item_cancelled',
+    entity: 'Invoice',
+    entityId: invoice._id,
+    entityLabel: invoice.invoiceNumber,
+    summary:
+      `${item.testName} cancelled on ${invoice.invoiceNumber} for ${invoice.patientInfo.name} — ` +
+      `net now ${invoice.netPayable} (${reason})` +
+      (commissionSettled
+        ? ` · commission held at ${invoice.commissionAmount}, already paid out`
+        : ''),
+    meta: {
+      test: item.testName,
+      price: item.price,
+      net: invoice.netPayable,
+      commission: invoice.commissionAmount,
+      commissionFrozen: commissionSettled,
+      reason,
+    },
+  });
+
+  return invoice;
+};
+
 const cancelInvoice = async (
   id: string,
   userId: string,
@@ -361,6 +482,32 @@ const cancelInvoice = async (
     throw new AppError(
       httpStatus.BAD_REQUEST,
       'Cannot cancel an invoice with payments recorded against it. Void the payments first.'
+    );
+  }
+
+  /**
+   * A cancelled invoice drops out of every report, which is fine while its
+   * commission is still an accrual — but not once the doctor has been paid.
+   * The payout record would go on claiming an amount that no longer has an
+   * invoice behind it, and the "commission paid" column would quietly lose the
+   * money that actually left the till.
+   *
+   * Blocked rather than reconciled here, because reversing a payout is a
+   * decision with a person on the other end of it.
+   */
+  if (invoice.commissionStatus === 'paid') {
+    const payout = invoice.commissionPayout
+      ? await CommissionPayout.findById(invoice.commissionPayout).select(
+          'payoutNumber'
+        )
+      : null;
+
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Commission of ${invoice.commissionAmount} on this invoice has already been paid to ` +
+        `${invoice.referrerInfo?.name ?? 'the referrer'}` +
+        (payout ? ` under ${payout.payoutNumber}` : '') +
+        '. Reverse that payout before cancelling the invoice.'
     );
   }
 
@@ -575,6 +722,7 @@ export const InvoiceServices = {
   getPatientInvoices,
   updateInvoiceItems,
   cancelInvoice,
+  cancelInvoiceItem,
   uploadItemReport,
   markReportDelivered,
   getReportDownloadUrl,

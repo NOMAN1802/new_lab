@@ -67,6 +67,7 @@ export const paymentsApi = baseApi.injectEndpoints({
                 { type: 'Invoices', id: invoice },
                 { type: 'Invoices', id: 'LIST' },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
 
@@ -86,6 +87,7 @@ export const paymentsApi = baseApi.injectEndpoints({
                 { type: 'Invoices', id: invoiceId },
                 { type: 'Invoices', id: 'LIST' },
                 { type: 'Dashboard', id: 'ALL' },
+                { type: 'Reports' },
             ],
         }),
     }),

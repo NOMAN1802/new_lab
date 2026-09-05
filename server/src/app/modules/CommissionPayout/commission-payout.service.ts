@@ -21,14 +21,36 @@ export type TCreatePayoutInput = {
 };
 
 /**
- * Commission accrues on cancelled invoices too if we are not careful — only
- * live invoices with a pending commission are ever settleable.
+ * What is actually payable to a referrer right now.
+ *
+ * Commission accrues the moment an invoice is raised, but it is only settled
+ * once the patient has paid in full, and that ordering is what keeps the
+ * ledger consistent rather than being mere caution:
+ *
+ *   - a fully paid invoice cannot be cancelled (cancelInvoice refuses while
+ *     any payment stands), and
+ *   - none of its tests can be cancelled either, because dropping a line
+ *     would take the net below what has already been collected.
+ *
+ * So by the time commission is payable, the figure behind it can no longer
+ * move. Paying earlier is what creates the case where a doctor has been paid
+ * for a test that was later called off.
  */
 const pendingCommissionFilter = (referrerId: string) => ({
   referrer: new Types.ObjectId(referrerId),
   commissionStatus: 'pending' as const,
   isCancelled: { $ne: true },
   commissionAmount: { $gt: 0 },
+  paymentStatus: 'paid' as const,
+});
+
+/** Accrued but not yet payable — the patient still owes on these. */
+const awaitingSettlementFilter = (referrerId: string) => ({
+  referrer: new Types.ObjectId(referrerId),
+  commissionStatus: 'pending' as const,
+  isCancelled: { $ne: true },
+  commissionAmount: { $gt: 0 },
+  paymentStatus: { $ne: 'paid' as const },
 });
 
 const createPayout = async (
@@ -63,9 +85,15 @@ const createPayout = async (
     const invoices = await Invoice.find(filter).session(session);
 
     if (invoices.length === 0) {
+      const unsettled = await Invoice.countDocuments(
+        awaitingSettlementFilter(payload.referrer)
+      ).session(session);
+
       throw new AppError(
         httpStatus.BAD_REQUEST,
-        'No pending commission found for this referrer'
+        unsettled > 0
+          ? `Nothing payable yet. ${unsettled} invoice(s) have commission accrued but are not settled — commission is paid once the patient has.`
+          : 'No pending commission found for this referrer'
       );
     }
 
@@ -178,15 +206,31 @@ const getPendingCommission = async (referrerId: string) => {
   const referrer = await Referrer.findById(referrerId);
   if (!referrer) throw new AppError(httpStatus.NOT_FOUND, 'Referrer not found');
 
-  const invoices = await Invoice.find(pendingCommissionFilter(referrerId))
-    .select('invoiceNumber visitDate netPayable commissionPercent commissionAmount')
-    .sort({ visitDate: 1 });
+  const [invoices, awaiting] = await Promise.all([
+    Invoice.find(pendingCommissionFilter(referrerId))
+      .select('invoiceNumber visitDate netPayable commissionType commissionValue commissionAmount')
+      .sort({ visitDate: 1 }),
+    Invoice.find(awaitingSettlementFilter(referrerId)).select(
+      'invoiceNumber visitDate netPayable dueAmount commissionAmount'
+    ),
+  ]);
 
   const totalPending = round2(
     invoices.reduce((total, invoice) => total + invoice.commissionAmount, 0)
   );
 
-  return { referrer, invoices, totalPending };
+  return {
+    referrer,
+    invoices,
+    totalPending,
+    /** Accrued, but the patient has not settled — so not payable yet. */
+    awaitingSettlement: {
+      invoiceCount: awaiting.length,
+      total: round2(
+        awaiting.reduce((sum, invoice) => sum + invoice.commissionAmount, 0)
+      ),
+    },
+  };
 };
 
 export const CommissionPayoutServices = {
