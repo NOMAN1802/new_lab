@@ -6,6 +6,7 @@ import Loader from '@/components/common/Loader';
 import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
+import InlineAlert from '@/components/ui/InlineAlert';
 import Panel from '@/components/ui/Panel';
 import { useT } from '@/i18n/useLanguage';
 import Select from '@/components/ui/Select';
@@ -101,13 +102,24 @@ const CommissionPayoutsPage = () => {
                                         Pending for <strong style={{ color: 'var(--text-heading)' }}>{pending.referrer.name}</strong>
                                     </p>
                                     <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                                        {pending.invoices.length} unsettled {pending.invoices.length === 1 ? 'invoice' : 'invoices'}
+                                        {pending.invoices.length} {t('comm.readyToPay')}
                                     </p>
                                 </div>
                                 <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>
                                     {money(pending.totalPending)}
                                 </p>
                             </div>
+
+                            {pending.awaitingSettlement.invoiceCount > 0 && (
+                                <InlineAlert tone="info">
+                                    {money(pending.awaitingSettlement.total)} {t('comm.awaiting')} ·{' '}
+                                    {pending.awaitingSettlement.invoiceCount}{' '}
+                                    {pending.awaitingSettlement.invoiceCount === 1
+                                        ? t('invoices.one')
+                                        : t('invoices.many')}
+                                    . {t('comm.payableRule')}
+                                </InlineAlert>
+                            )}
 
                             {pending.invoices.length === 0 ? (
                                 <p
@@ -120,7 +132,9 @@ const CommissionPayoutsPage = () => {
                                         color: 'var(--text-muted)',
                                     }}
                                 >
-                                    {t('jsx.nothingOutstandingRef')}
+                                    {pending.awaitingSettlement.invoiceCount > 0
+                                        ? `${t('comm.nothingPayable')} ${t('comm.payableRule')}`
+                                        : t('jsx.nothingOutstandingRef')}
                                 </p>
                             ) : (
                                 <>

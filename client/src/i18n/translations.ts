@@ -555,6 +555,27 @@ export const translations = {
     'set.saveChanges': { en: 'Save changes', bn: 'পরিবর্তন সংরক্ষণ' },
     'set.nothingChanged': { en: 'Nothing changed yet.', bn: 'এখনও কিছু পরিবর্তন হয়নি।' },
 
+
+    // ---- Cancelling a single test ----
+    'inv.cancelTest': { en: 'Cancel this test', bn: 'এই পরীক্ষা বাতিল করুন' },
+    'inv.cancelTestPrompt': { en: 'Why is {test} being cancelled?', bn: '{test} কেন বাতিল করা হচ্ছে?' },
+    'inv.testCancelled': { en: 'Test cancelled', bn: 'পরীক্ষা বাতিল হয়েছে' },
+    'inv.cancelTestFailed': { en: 'Could not cancel the test', bn: 'পরীক্ষা বাতিল করা যায়নি' },
+    'inv.reportDoneNoCancel': { en: 'The report is already done — cancel the whole invoice instead', bn: 'রিপোর্ট ইতিমধ্যে সম্পন্ন — পুরো ইনভয়েস বাতিল করুন' },
+    'inv.lastTestNoCancel': { en: 'The only remaining test — cancel the invoice instead', bn: 'একমাত্র অবশিষ্ট পরীক্ষা — ইনভয়েস বাতিল করুন' },
+    'status.cancelled_test': { en: 'Cancelled', bn: 'বাতিল' },
+
+    // ---- Commission payability ----
+    'comm.payableRule': { en: 'Commission is paid once the patient has settled the invoice.', bn: 'রোগী ইনভয়েস পরিশোধ করার পরই কমিশন দেওয়া হয়।' },
+    'comm.awaiting': { en: 'awaiting patient settlement', bn: 'রোগীর পরিশোধের অপেক্ষায়' },
+    'comm.nothingPayable': { en: 'Nothing payable yet.', bn: 'এখনও পরিশোধযোগ্য কিছু নেই।' },
+
+    'comm.readyToPay': { en: 'settled invoice(s), ready to pay', bn: 'পরিশোধিত ইনভয়েস, দেওয়ার জন্য প্রস্তুত' },
+
+    'crep.awaiting': { en: 'Awaiting', bn: 'অপেক্ষমাণ' },
+    'crep.commissionAwaiting': { en: 'Commission awaiting settlement', bn: 'পরিশোধের অপেক্ষায় কমিশন' },
+    'crep.awaitingNote': { en: 'Accrued on unpaid invoices — payable once the patient settles.', bn: 'অপরিশোধিত ইনভয়েসে জমা — রোগী পরিশোধ করলে দেওয়া হবে।' },
+
     // ---- Status vocabulary ----
     'status.paid': { en: 'Paid', bn: 'পরিশোধিত' },
     'status.unpaid': { en: 'Unpaid', bn: 'অপরিশোধিত' },

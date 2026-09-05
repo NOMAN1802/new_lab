@@ -16,6 +16,7 @@ import { useReportPreview } from '@/hooks/useReportPreview';
 import ReportPreviewModal from '@/components/common/ReportPreviewModal';
 import { apiErrorMessage, commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
 import {
+    useCancelInvoiceItemMutation,
     useCancelInvoiceMutation,
     useGetInvoiceQuery,
     useMarkReportDeliveredMutation,
@@ -73,6 +74,7 @@ const InvoiceDetailPage = () => {
     const [markDelivered] = useMarkReportDeliveredMutation();
     const { preview, openPreview, closePreview, downloadReport, downloadPreview } = useReportPreview();
     const [cancelInvoice] = useCancelInvoiceMutation();
+    const [cancelInvoiceItem, { isLoading: isCancellingItem }] = useCancelInvoiceItemMutation();
 
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
@@ -152,6 +154,26 @@ const InvoiceDetailPage = () => {
         fileName: reportName(item),
         caption: `${invoice.patientInfo.name} · ${item.testName} · ${invoice.invoiceNumber}`,
     });
+
+    /**
+     * Calls off one test. The reason is required by the API and shows in the
+     * activity log, so it is asked for rather than defaulted.
+     */
+    const handleCancelItem = async (item: InvoiceItem) => {
+        const reason = window.prompt(t('inv.cancelTestPrompt').replace('{test}', item.testName));
+        if (!reason?.trim()) return;
+
+        try {
+            await cancelInvoiceItem({
+                invoiceId: invoice._id,
+                itemId: item._id,
+                reason: reason.trim(),
+            }).unwrap();
+            toast.success(t('inv.testCancelled'));
+        } catch (error) {
+            toast.error(apiErrorMessage(error, t('inv.cancelTestFailed')));
+        }
+    };
 
     const handleDeliver = async (itemId: string) => {
         try {
@@ -242,11 +264,30 @@ const InvoiceDetailPage = () => {
                                         </span>
                                     ),
                                 },
-                                { key: 'price', header: t('col.price'), align: 'right', render: (item) => money(item.price) },
+                                {
+                                    key: 'price',
+                                    header: t('col.price'),
+                                    align: 'right',
+                                    render: (item) => (
+                                        <span
+                                            style={{
+                                                textDecoration: item.isCancelled ? 'line-through' : 'none',
+                                                color: item.isCancelled ? 'var(--text-faint)' : 'inherit',
+                                            }}
+                                        >
+                                            {money(item.price)}
+                                        </span>
+                                    ),
+                                },
                                 {
                                     key: 'reportStatus',
                                     header: t('col.report'),
-                                    render: (item) => <StatusBadge status={REPORT_BADGE[item.reportStatus] ?? item.reportStatus} />,
+                                    render: (item) =>
+                                        item.isCancelled ? (
+                                            <StatusBadge status="cancelled" />
+                                        ) : (
+                                            <StatusBadge status={REPORT_BADGE[item.reportStatus] ?? item.reportStatus} />
+                                        ),
                                 },
                                 {
                                     key: 'actions',
@@ -254,6 +295,40 @@ const InvoiceDetailPage = () => {
                                     align: 'right',
                                     render: (item) => (
                                         <span style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
+                                            {/*
+                                              A cancelled line keeps no actions: there is nothing
+                                              left to upload, deliver or call off.
+                                            */}
+                                            {!invoice.isCancelled && !item.isCancelled && (() => {
+                                                const liveCount = invoice.items.filter((entry) => !entry.isCancelled).length;
+                                                const reportDone = item.reportStatus !== 'pending';
+                                                const isLast = liveCount <= 1;
+                                                const blocked = reportDone || isLast;
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        disabled={blocked || isCancellingItem}
+                                                        aria-label={`Cancel ${item.testName}`}
+                                                        title={
+                                                            reportDone
+                                                                ? t('inv.reportDoneNoCancel')
+                                                                : isLast
+                                                                  ? t('inv.lastTestNoCancel')
+                                                                  : t('inv.cancelTest')
+                                                        }
+                                                        onClick={() => handleCancelItem(item)}
+                                                        style={{
+                                                            ...actionIconStyle,
+                                                            color: 'var(--danger-strong)',
+                                                            opacity: blocked || isCancellingItem ? 0.35 : 1,
+                                                            cursor: blocked ? 'not-allowed' : 'pointer',
+                                                        }}
+                                                    >
+                                                        <Icon name="x" size={16} />
+                                                    </button>
+                                                );
+                                            })()}
                                             {item.reportFile && (
                                                 <>
                                                     <button
@@ -276,7 +351,7 @@ const InvoiceDetailPage = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            {!invoice.isCancelled && (
+                                            {!invoice.isCancelled && !item.isCancelled && (
                                                 <button
                                                     type="button"
                                                     disabled={isUploading}
@@ -290,7 +365,7 @@ const InvoiceDetailPage = () => {
                                                     <Icon name="upload" size={16} />
                                                 </button>
                                             )}
-                                            {item.reportStatus === 'uploaded' && (
+                                            {item.reportStatus === 'uploaded' && !item.isCancelled && (
                                                 <button
                                                     type="button"
                                                     disabled={invoice.dueAmount > 0}

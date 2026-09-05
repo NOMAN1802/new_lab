@@ -3,10 +3,24 @@ import { useParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
-import { commissionBasis, formatDate, formatDateTime, money } from '@/lib/format';
+import { CENTRE } from '@/lib/centre';
+import { formatDate, formatDateTime, money } from '@/lib/format';
 import { useGetInvoiceQuery } from '@/services/invoicesApi';
 import { useGetInvoicePaymentsQuery } from '@/services/paymentsApi';
 
+/**
+ * The patient's copy.
+ *
+ * Set in a serif rather than the app's face: this is a paper record a patient
+ * keeps, and the interface's monospace is both wider than A4 wants and wrong
+ * for names and addresses. The mono face is kept for the things that get read
+ * back aloud or transcribed — the invoice number, test codes, receipts — and
+ * for the money column, where tabular figures line up on the decimal.
+ *
+ * Nothing about the centre's commission arrangements appears here. What a
+ * referring doctor is owed is between the centre and the doctor; it is not the
+ * patient's business and does not belong on their bill.
+ */
 const PrintInvoicePage = () => {
     const { id } = useParams();
     const printRef = useRef<HTMLDivElement>(null);
@@ -24,11 +38,24 @@ const PrintInvoicePage = () => {
         return <ErrorState title="Could not load invoice" onRetry={refetch} />;
     }
 
-    const validPayments = payments.filter((payment) => !payment.isVoided);
+    const receipts = payments.filter((payment) => !payment.isVoided);
+    const settled = invoice.dueAmount <= 0;
 
     return (
-        <div className="min-h-screen bg-slate-100 py-8">
-            <div className="mx-auto max-w-3xl px-4">
+        <div className="min-h-screen bg-slate-100 py-8 print:bg-white print:py-0">
+            <style>{`
+                @page { size: A4; margin: 14mm; }
+                @media print {
+                    .sheet { box-shadow: none; padding: 0; }
+                    tr, .keep-together { break-inside: avoid; }
+                    thead { display: table-header-group; }
+                }
+                .doc { font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; }
+                /* Bengali is not in either Latin face; the taka sign comes from here. */
+                .figure { font-family: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace; }
+            `}</style>
+
+            <div className="mx-auto max-w-[52rem] px-4">
                 <div className="mb-4 flex justify-end gap-3 print:hidden">
                     <button
                         type="button"
@@ -40,84 +67,105 @@ const PrintInvoicePage = () => {
                     <button
                         type="button"
                         onClick={() => handlePrint()}
-                        className="rounded-sm bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+                        className="rounded-sm bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
                     >
                         Print / Save as PDF
                     </button>
                 </div>
 
-                <div ref={printRef} className="bg-white p-10 shadow-lg print:shadow-none">
+                <div ref={printRef} className="doc sheet bg-white p-12 text-[13px] leading-relaxed text-black shadow-lg">
                     {/*
-                      No letterhead: these print onto the centre's own
-                      pre-printed stationery, so the top of the page is left
-                      clear for it.
+                      No letterhead: these print onto the centre's own pre-printed
+                      stationery, so the top of the page stays clear for it.
                     */}
-                    <header className="flex items-end justify-between border-b-2 border-slate-800 pb-5">
+                    <header className="flex items-end justify-between gap-8 border-b border-black pb-4">
                         <div>
-                            <p className="text-lg font-bold uppercase tracking-wide text-slate-900">
-                                Invoice
-                            </p>
-                            <p className="mt-1 font-mono text-sm font-semibold text-slate-700">
+                            <h1 className="text-[26px] font-semibold leading-none tracking-tight">Invoice</h1>
+                            <p className="figure mt-2 text-[13px] tracking-tight text-neutral-700">
                                 {invoice.invoiceNumber}
                             </p>
                         </div>
-                        <p className="text-sm text-slate-700">
-                            Date: {formatDate(invoice.visitDate)}
-                        </p>
+                        <dl className="text-right text-[12px] leading-snug text-neutral-600">
+                            <div className="flex justify-end gap-2">
+                                <dt>Date</dt>
+                                <dd className="figure w-28 text-black">{formatDate(invoice.visitDate)}</dd>
+                            </div>
+                            {invoice.isCancelled && (
+                                <div className="mt-1 flex justify-end gap-2">
+                                    <dt>Status</dt>
+                                    <dd className="w-28 font-semibold text-black">Cancelled</dd>
+                                </div>
+                            )}
+                        </dl>
                     </header>
 
-                    <section className="grid grid-cols-2 gap-6 border-b border-slate-200 py-5 text-sm">
+                    <section className="grid grid-cols-[1.1fr_1fr] gap-10 py-5">
                         <div>
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Patient
+                            <h2 className="mb-1.5 text-[11px] font-semibold text-neutral-500">Billed to</h2>
+                            <p className="text-[15px] font-semibold">{invoice.patientInfo.name}</p>
+                            <p className="figure mt-0.5 text-[12px] text-neutral-600">
+                                {invoice.patientInfo.patientId}
                             </p>
-                            <p className="font-semibold text-slate-900">{invoice.patientInfo.name}</p>
-                            <p className="text-slate-600">ID: {invoice.patientInfo.patientId}</p>
-                            <p className="capitalize text-slate-600">
-                                {invoice.patientInfo.age} yrs · {invoice.patientInfo.gender}
+                            <p className="mt-1 capitalize text-neutral-700">
+                                {invoice.patientInfo.age} years, {invoice.patientInfo.gender}
                             </p>
-                            <p className="text-slate-600">{invoice.patientInfo.phone}</p>
+                            <p className="figure text-neutral-700">{invoice.patientInfo.phone}</p>
                             {invoice.patientInfo.address && (
-                                <p className="text-slate-600">{invoice.patientInfo.address}</p>
+                                <p className="text-neutral-700">{invoice.patientInfo.address}</p>
                             )}
                         </div>
 
                         {invoice.referrerInfo && (
                             <div>
-                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Referred by
-                                </p>
-                                <p className="font-semibold text-slate-900">
-                                    {invoice.referrerInfo.name}
-                                </p>
+                                <h2 className="mb-1.5 text-[11px] font-semibold text-neutral-500">Referred by</h2>
+                                <p className="text-[15px] font-semibold">{invoice.referrerInfo.name}</p>
                                 {invoice.referrerInfo.designation && (
-                                    <p className="text-slate-600">{invoice.referrerInfo.designation}</p>
+                                    <p className="mt-0.5 text-neutral-700">{invoice.referrerInfo.designation}</p>
                                 )}
                                 {invoice.referrerInfo.hospital && (
-                                    <p className="text-slate-600">{invoice.referrerInfo.hospital}</p>
+                                    <p className="text-neutral-700">{invoice.referrerInfo.hospital}</p>
                                 )}
                             </div>
                         )}
                     </section>
 
-                    <table className="w-full py-5 text-sm">
+                    <table className="w-full border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
-                                <th className="py-2 font-semibold">#</th>
+                            <tr className="border-y border-neutral-400 text-left text-[11px] font-semibold text-neutral-600">
+                                <th className="w-8 py-2 font-semibold">#</th>
                                 <th className="py-2 font-semibold">Test</th>
-                                <th className="py-2 font-semibold">Code</th>
-                                <th className="py-2 text-right font-semibold">Amount</th>
+                                <th className="w-32 py-2 font-semibold">Code</th>
+                                <th className="w-32 py-2 text-right font-semibold">Amount</th>
                             </tr>
                         </thead>
                         <tbody>
                             {invoice.items.map((item, index) => (
-                                <tr key={item._id} className="border-b border-slate-100">
-                                    <td className="py-2.5 text-slate-500">{index + 1}</td>
-                                    <td className="py-2.5 text-slate-800">{item.testName}</td>
-                                    <td className="py-2.5 font-mono text-xs text-slate-500">
+                                <tr
+                                    key={item._id}
+                                    className={`border-b border-neutral-200 ${item.isCancelled ? 'text-neutral-400' : ''}`}
+                                >
+                                    <td className="figure py-2.5 align-top text-[12px] text-neutral-500">{index + 1}</td>
+                                    <td className="py-2.5 align-top">
+                                        <span className={item.isCancelled ? 'line-through' : ''}>{item.testName}</span>
+                                        {/*
+                                          Struck, not dropped: the patient was told they were
+                                          being billed for this, so the bill has to show what
+                                          happened to it rather than quietly disagree.
+                                        */}
+                                        {item.isCancelled && (
+                                            <span className="block text-[11px] italic">
+                                                Cancelled{item.cancelReason ? ` — ${item.cancelReason}` : ''}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="figure py-2.5 align-top text-[12px] text-neutral-600">
                                         {item.testCode}
                                     </td>
-                                    <td className="py-2.5 text-right tabular-nums text-slate-900">
+                                    <td
+                                        className={`figure py-2.5 text-right align-top tabular-nums ${
+                                            item.isCancelled ? 'line-through' : ''
+                                        }`}
+                                    >
                                         {money(item.price)}
                                     </td>
                                 </tr>
@@ -125,78 +173,56 @@ const PrintInvoicePage = () => {
                         </tbody>
                     </table>
 
-                    <section className="flex justify-end pt-4">
-                        <dl className="w-72 space-y-1.5 text-sm">
-                            <div className="flex justify-between">
-                                <dt className="text-slate-600">Gross amount</dt>
-                                <dd className="tabular-nums text-slate-900">
-                                    {money(invoice.grossAmount)}
-                                </dd>
-                            </div>
-                            {invoice.discountAmount > 0 && (
+                    <section className="keep-together mt-6 flex justify-end">
+                        <div className="w-80">
+                            <dl className="space-y-1.5 text-[13px]">
                                 <div className="flex justify-between">
-                                    <dt className="text-slate-600">
-                                        Discount ({invoice.discountPercent}%)
-                                    </dt>
-                                    <dd className="tabular-nums text-slate-900">
-                                        −{money(invoice.discountAmount)}
-                                    </dd>
+                                    <dt className="text-neutral-600">Subtotal</dt>
+                                    <dd className="figure tabular-nums">{money(invoice.grossAmount)}</dd>
                                 </div>
-                            )}
-                            <div className="flex justify-between border-t border-slate-300 pt-1.5 font-bold">
-                                <dt className="text-slate-900">Net payable</dt>
-                                <dd className="tabular-nums text-slate-900">
-                                    {money(invoice.netPayable)}
-                                </dd>
-                            </div>
-                            <div className="flex justify-between">
-                                <dt className="text-slate-600">Amount paid</dt>
-                                <dd className="tabular-nums text-slate-900">
-                                    {money(invoice.paidAmount)}
-                                </dd>
-                            </div>
-                            <div className="flex justify-between border-t border-slate-300 pt-1.5 font-bold">
-                                <dt className="text-slate-900">Due balance</dt>
-                                <dd className="tabular-nums text-slate-900">
-                                    {money(invoice.dueAmount)}
-                                </dd>
-                            </div>
-
-                            {invoice.referrerInfo &&
-                                invoice.commissionAmount !== undefined && (
-                                    <div className="mt-2 flex justify-between border-t border-dashed border-slate-300 pt-2">
-                                        <dt className="text-slate-600">
-                                            Referrer commission
-                                            {invoice.commissionValue
-                                                ? ` (${commissionBasis(
-                                                      invoice.commissionType,
-                                                      invoice.commissionValue
-                                                  )})`
-                                                : ''}
-                                        </dt>
-                                        <dd className="tabular-nums text-slate-900">
-                                            {money(invoice.commissionAmount)}
-                                        </dd>
+                                {invoice.discountAmount > 0 && (
+                                    <div className="flex justify-between">
+                                        <dt className="text-neutral-600">Discount {invoice.discountPercent}%</dt>
+                                        <dd className="figure tabular-nums">−{money(invoice.discountAmount)}</dd>
                                     </div>
                                 )}
-                        </dl>
+                                <div className="flex justify-between border-t border-neutral-300 pt-1.5 font-semibold">
+                                    <dt>Net payable</dt>
+                                    <dd className="figure tabular-nums">{money(invoice.netPayable)}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt className="text-neutral-600">Paid</dt>
+                                    <dd className="figure tabular-nums">{money(invoice.paidAmount)}</dd>
+                                </div>
+                            </dl>
+
+                            {/*
+                              The one fact a patient and the counter both check.
+                              It was the fifth row of a list; here it is the only
+                              thing on the page set large.
+                            */}
+                            <div className="mt-3 flex items-baseline justify-between border-y-2 border-black py-2.5">
+                                <span className="text-[14px] font-semibold">
+                                    {settled ? 'Paid in full' : 'Balance due'}
+                                </span>
+                                <span className="figure text-[19px] font-semibold tabular-nums">
+                                    {money(settled ? invoice.paidAmount : invoice.dueAmount)}
+                                </span>
+                            </div>
+                        </div>
                     </section>
 
-                    {validPayments.length > 0 && (
-                        <section className="mt-6 border-t border-slate-200 pt-4">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Payments received
-                            </p>
-                            <table className="w-full text-xs">
+                    {receipts.length > 0 && (
+                        <section className="keep-together mt-8">
+                            <h2 className="mb-2 text-[11px] font-semibold text-neutral-500">Receipts</h2>
+                            <table className="w-full border-collapse text-[12px]">
                                 <tbody>
-                                    {validPayments.map((payment) => (
-                                        <tr key={payment._id} className="text-slate-600">
-                                            <td className="py-1 font-mono">{payment.receiptNumber}</td>
-                                            <td className="py-1">
-                                                {formatDateTime(payment.paymentDate)}
-                                            </td>
-                                            <td className="py-1">{payment.receivedByName}</td>
-                                            <td className="py-1 text-right tabular-nums">
+                                    {receipts.map((payment) => (
+                                        <tr key={payment._id} className="border-b border-neutral-200 text-neutral-700">
+                                            <td className="figure w-32 py-1.5">{payment.receiptNumber}</td>
+                                            <td className="figure py-1.5">{formatDateTime(payment.paymentDate)}</td>
+                                            <td className="py-1.5">{payment.receivedByName}</td>
+                                            <td className="figure w-32 py-1.5 text-right tabular-nums">
                                                 {money(payment.amount)}
                                             </td>
                                         </tr>
@@ -206,14 +232,16 @@ const PrintInvoicePage = () => {
                         </section>
                     )}
 
-                    <footer className="mt-10 flex items-end justify-between border-t border-slate-200 pt-6 text-xs text-slate-500">
-                        <p>
-                            All payments received in cash.
-                            <br />
-                            This is a computer-generated invoice.
-                        </p>
-                        <div className="text-center">
-                            <div className="mb-1 w-40 border-t border-slate-400" />
+                    <footer className="keep-together mt-12 flex items-end justify-between gap-10 border-t border-neutral-300 pt-5 text-[11px] leading-relaxed text-neutral-600">
+                        <div>
+                            <p>Paid in cash. Please bring this invoice when collecting reports.</p>
+                            <p className="mt-0.5">
+                                Computer-generated by {CENTRE.name}
+                                {CENTRE.phone ? ` · ${CENTRE.phone}` : ''}
+                            </p>
+                        </div>
+                        <div className="shrink-0 text-center">
+                            <div className="mb-1.5 w-44 border-t border-neutral-500" />
                             <p>Authorised signature</p>
                         </div>
                     </footer>

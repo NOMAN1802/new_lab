@@ -55,7 +55,10 @@ export type ReferralCommissionRow = {
     discountGiven: number;
     netBilled: number;
     collected: number;
+    /** Commission is earned on settlement, so this counts paid invoices only. */
     commissionAccrued: number;
+    /** Accrued on paper but not payable yet — the patient still owes. */
+    commissionAwaiting: number;
     commissionPaid: number;
     commissionPending: number;
 };
@@ -66,6 +69,7 @@ export type ReferralCommissionReport = {
         invoiceCount: number;
         discountGiven: number;
         commissionAccrued: number;
+        commissionAwaiting: number;
         commissionPaid: number;
         commissionPending: number;
     };
