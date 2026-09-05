@@ -50,6 +50,15 @@ router.patch(
   InvoiceControllers.cancelInvoice
 );
 
+// Calling off a single test is counter work, so both roles may do it. The
+// whole-invoice cancellation above stays Admin-only.
+router.patch(
+  '/:id/items/:itemId/cancel',
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
+  validateRequest(InvoiceValidations.cancelInvoiceItemValidationSchema),
+  InvoiceControllers.cancelInvoiceItem
+);
+
 // Report handling - both roles per proposal §4.7.
 router.post(
   '/:id/items/:itemId/report',

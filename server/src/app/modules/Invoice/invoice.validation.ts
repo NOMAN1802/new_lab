@@ -85,8 +85,18 @@ const cancelInvoiceValidationSchema = z.object({
   }),
 });
 
+const cancelInvoiceItemValidationSchema = z.object({
+  body: z.object({
+    reason: z
+      .string()
+      .trim()
+      .min(1, 'Say why this test is being cancelled'),
+  }),
+});
+
 export const InvoiceValidations = {
   createInvoiceValidationSchema,
   updateInvoiceItemsValidationSchema,
   cancelInvoiceValidationSchema,
+  cancelInvoiceItemValidationSchema,
 };

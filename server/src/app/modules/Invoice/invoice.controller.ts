@@ -117,6 +117,21 @@ const markReportDelivered = catchAsync(async (req, res) => {
   });
 });
 
+const cancelInvoiceItem = catchAsync(async (req, res) => {
+  const result = await InvoiceServices.cancelInvoiceItem(
+    req.params.id,
+    req.params.itemId,
+    req.user._id,
+    req.body.reason
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Test cancelled successfully',
+    data: serializeInvoice(result, req.user.role as TUserRole),
+  });
+});
+
 const getReportDownloadUrl = catchAsync(async (req, res) => {
   const result = await InvoiceServices.getReportDownloadUrl(
     req.params.id,
@@ -159,6 +174,7 @@ export const InvoiceControllers = {
   getPatientInvoices,
   updateInvoiceItems,
   cancelInvoice,
+  cancelInvoiceItem,
   uploadItemReport,
   markReportDelivered,
   getReportDownloadUrl,

@@ -112,7 +112,12 @@ const getFinancialSummary = async (range: TDateRange) => {
           discount: { $sum: '$discountAmount' },
           net: { $sum: '$netPayable' },
           due: { $sum: '$dueAmount' },
-          commission: { $sum: '$commissionAmount' },
+          // Only settled invoices earn commission, so only they are counted.
+          commission: {
+            $sum: {
+              $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
+            },
+          },
         },
       },
     ]),
@@ -175,7 +180,17 @@ const getReferralCommissionReport = async (range: TDateRange) => {
         discountGiven: { $sum: '$discountAmount' },
         netBilled: { $sum: '$netPayable' },
         collected: { $sum: '$paidAmount' },
-        commissionAccrued: { $sum: '$commissionAmount' },
+        commissionAccrued: {
+          $sum: {
+            $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
+          },
+        },
+        // Accrued on paper but not payable yet — the patient still owes.
+        commissionAwaiting: {
+          $sum: {
+            $cond: [{ $ne: ['$paymentStatus', 'paid'] }, '$commissionAmount', 0],
+          },
+        },
         commissionPaid: {
           $sum: {
             $cond: [
@@ -203,6 +218,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
       invoiceCount: acc.invoiceCount + row.invoiceCount,
       discountGiven: acc.discountGiven + row.discountGiven,
       commissionAccrued: acc.commissionAccrued + row.commissionAccrued,
+      commissionAwaiting: acc.commissionAwaiting + row.commissionAwaiting,
       commissionPaid: acc.commissionPaid + row.commissionPaid,
       commissionPending: acc.commissionPending + row.commissionPending,
     }),
@@ -211,6 +227,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
       invoiceCount: 0,
       discountGiven: 0,
       commissionAccrued: 0,
+      commissionAwaiting: 0,
       commissionPaid: 0,
       commissionPending: 0,
     }
@@ -221,6 +238,7 @@ const getReferralCommissionReport = async (range: TDateRange) => {
       ...summary,
       discountGiven: round2(summary.discountGiven),
       commissionAccrued: round2(summary.commissionAccrued),
+      commissionAwaiting: round2(summary.commissionAwaiting),
       commissionPaid: round2(summary.commissionPaid),
       commissionPending: round2(summary.commissionPending),
     },

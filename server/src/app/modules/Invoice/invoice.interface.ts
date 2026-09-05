@@ -32,6 +32,18 @@ export type TInvoiceItem = {
   reportStatus: TReportStatus;
   reportFile?: TReportFile;
   deliveredAt?: Date;
+
+  /**
+   * A test called off after booking — a sample that could not be drawn, a
+   * machine down, a patient who left. Cancelled lines stay on the invoice and
+   * on the printed copy struck through: the patient was told about them, so
+   * removing the row outright would make the bill disagree with what happened.
+   * Only live lines count towards the totals.
+   */
+  isCancelled?: boolean;
+  cancelledAt?: Date;
+  cancelledBy?: Types.ObjectId;
+  cancelReason?: string;
 };
 
 export type TPatientSnapshot = {
