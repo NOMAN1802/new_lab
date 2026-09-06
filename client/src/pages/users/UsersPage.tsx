@@ -301,7 +301,7 @@ const UsersPage = () => {
                                 <RoleBadge role={viewing.role} />
                             </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%),1fr))', gap: 12 }}>
                             <DetailRow icon="user-round" label={t('pform.fullName')} value={viewing.name} />
                             <DetailRow icon="mail" label={t('fld.emailAddress')} value={viewing.email} />
                             <DetailRow icon="phone" label={t('fld.mobileNumber')} value={viewing.mobileNumber} />
@@ -344,7 +344,7 @@ const UsersPage = () => {
                             {result.text}
                         </InlineAlert>
                     )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%),1fr))', gap: 18 }}>
                         <TextField label={legend('user-round', 'Full name')} value={formData.name} onChange={setField('name')} placeholder={t('ph.fullName')} />
                         <TextField
                             label={legend('phone', 'Mobile number')}

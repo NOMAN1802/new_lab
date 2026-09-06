@@ -29,6 +29,9 @@ const daysAgo = (days: number) => {
 };
 
 const RANGES: { key: TranslationKey; value: string }[] = [
+    // 0 = today only: daysAgo(0) is today, and the range is inclusive of both
+    // ends, so start and end land on the same Dhaka day.
+    { key: 'ctrl.today', value: '0' },
     { key: 'ctrl.7days', value: '6' },
     { key: 'ctrl.30days', value: '29' },
     { key: 'ctrl.90days', value: '89' },
@@ -85,7 +88,7 @@ const DashboardPage = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                     <StatCard label={t('dash.bookingsToday')} value={data.today.bookings} icon="clipboard-list" />
                     <StatCard label={t('dash.myCollection')} value={money(data.today.myCollection)} icon="banknote" accent="accent" />
                     <StatCard label={t('dash.reportsPending')} value={data.reports.pending} icon="file-text" accent="warning" />
@@ -152,6 +155,10 @@ const DashboardPage = () => {
 
     // Collection rate is derived, not stored: cash in over what was actually billed.
     const collectionRate = data.period.net > 0 ? (data.period.collected / data.period.net) * 100 : 0;
+    // Every non-cancelled test booked in the window, so "pending" reads as a
+    // share of the workload rather than as a bare number.
+    const totalTests =
+        data.period.reports.pending + data.period.reports.uploaded + data.period.reports.delivered;
 
     // The API already sends five; the slice keeps the panel honest if that changes.
     const recentActivity = data.recentActivity.slice(0, 5);
@@ -179,20 +186,53 @@ const DashboardPage = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
-                <StatCard label={t('dash.collectedToday')} value={money(data.today.collected)} icon="banknote" accent="accent" />
-                <StatCard label={t('dash.bookingsTodayAdmin')} value={data.today.invoiceCount} icon="clipboard-list" />
-                <StatCard label={t('dash.newPatients')} value={data.today.newPatients} icon="user-round-plus" accent="brand" />
+            {/* Fixed at three columns rather than auto-fit, so the six tiles
+                always read as two rows of three instead of reflowing to 4+2. */}
+            <div className="stat-grid-3">
+                <StatCard
+                    label={t('dash.collectedRange')}
+                    value={money(data.period.collected)}
+                    icon="banknote"
+                    accent="accent"
+                    caption={rangeLabel}
+                />
+                <StatCard
+                    label={t('dash.bookingsRange')}
+                    value={data.period.invoiceCount}
+                    icon="clipboard-list"
+                    caption={rangeLabel}
+                />
+                <StatCard
+                    label={t('dash.newPatientsRange')}
+                    value={data.period.newPatients}
+                    icon="user-round-plus"
+                    accent="brand"
+                    caption={rangeLabel}
+                />
+                <StatCard
+                    label={t('dash.totalPaid')}
+                    value={money(data.period.paid)}
+                    icon="circle-check"
+                    accent="accent"
+                    caption={`${t('dash.ofTests')} ${money(data.period.net)} ${t('dash.invoicesSettled')}`}
+                />
+                <StatCard
+                    label={t('dash.pendingReport')}
+                    value={data.period.reports.pending}
+                    icon="file-text"
+                    accent="warning"
+                    caption={`${t('dash.ofTests')} ${totalTests} ${t('dash.testsWord')}`}
+                />
                 <StatCard
                     label={t('dash.totalOutstanding')}
-                    value={money(data.outstanding.total)}
+                    value={money(data.period.due)}
                     icon="triangle-alert"
                     accent="danger"
                     caption={`${t('dash.acrossInvoices')} ${data.outstanding.invoiceCount} ${t('dash.invoicesWord')}`}
                 />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px,1fr))', gap: 'var(--gap-grid)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                 <Panel
                     title={t('dash.cashCollected')}
                     subtitle={`${t('dash.last')} ${rangeLabel} · ${t('dash.groupedOn')}`}
@@ -216,7 +256,7 @@ const DashboardPage = () => {
                     ) : (
                         <AreaTrendChart data={trend} height={214} valueFormat={(v) => compactMoney(Number(v))} />
                     )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 18 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: 12, marginTop: 18 }}>
                         {tiles.map(([label, value, color]) => (
                             <div
                                 key={label}
@@ -335,7 +375,7 @@ const DashboardPage = () => {
                 />
             </Panel>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px,1fr))', gap: 'var(--gap-grid)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                 <Panel title={t('dash.topReferrers')} subtitle={t('dash.topReferrersBody')}>
                     <DataTable<ReferrerSummaryRow & { id: string }>
                         dense

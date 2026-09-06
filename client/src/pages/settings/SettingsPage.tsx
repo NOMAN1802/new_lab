@@ -147,7 +147,7 @@ const SettingsPage = () => {
                         </InlineAlert>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%),1fr))', gap: 20 }}>
                         <TextField label={legend('user-round', t('pform.fullName'))} value={formData.name} onChange={handleChange('name')} placeholder={t('ph.yourName')} />
                         <TextField
                             label={legend('phone', t('fld.mobileNumber'))}
@@ -190,7 +190,7 @@ const SettingsPage = () => {
             </Panel>
 
             <Panel title={t('ttl.account')} subtitle={t('ttl.adminManaged')}>
-                <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 16 }}>
+                <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%),1fr))', gap: 16 }}>
                     {accountFacts.map(([label, value, icon]) => (
                         <div
                             key={label}

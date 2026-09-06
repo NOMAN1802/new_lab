@@ -231,6 +231,16 @@ export const translations = {
     'dash.nothingRecorded': { en: 'Nothing recorded yet.', bn: 'এখনও কিছু রেকর্ড হয়নি।' },
     'dash.newPatients': { en: 'New patients today', bn: 'আজ নতুন রোগী' },
     'dash.totalOutstanding': { en: 'Total outstanding', bn: 'মোট বকেয়া' },
+    /* Range-scoped versions of the tiles above: these follow the 7/30/90-day
+       filter, so the labels must not say "today". */
+    'dash.collectedRange': { en: 'Collected', bn: 'সংগৃহীত' },
+    'dash.bookingsRange': { en: 'Bookings', bn: 'বুকিং' },
+    'dash.newPatientsRange': { en: 'New patients', bn: 'নতুন রোগী' },
+    'dash.totalPaid': { en: 'Total paid', bn: 'মোট পরিশোধিত' },
+    'dash.pendingReport': { en: 'Pending reports', bn: 'অপেক্ষমাণ রিপোর্ট' },
+    'dash.ofTests': { en: 'of', bn: 'মোট' },
+    'dash.testsWord': { en: 'tests', bn: 'টেস্টের মধ্যে' },
+    'dash.invoicesSettled': { en: 'settled', bn: 'নিষ্পন্ন' },
     'dash.netBilled': { en: 'Net billed', bn: 'নিট বিল' },
 
 

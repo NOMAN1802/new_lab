@@ -75,7 +75,7 @@ const PatientDetailPage = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                 <StatCard label={t('fld.visits')} value={invoices.length} icon="clipboard-list" />
                 <StatCard label={t('fld.totalPaid')} value={money(totals.paid)} icon="banknote" accent="accent" />
                 <StatCard

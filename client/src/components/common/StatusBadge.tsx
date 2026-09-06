@@ -25,13 +25,13 @@ const styles: Record<string, [string, string, string]> = {
     uploaded: ['var(--slate-200)', 'var(--slate-700)', 'var(--slate-200)'],
 
     // Done — deliberately quiet.
-    paid: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
-    completed: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
-    delivered: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
-    active: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
+    paid: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],
+    completed: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],
+    delivered: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],
+    active: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],
 
-    draft: ['var(--slate-100)', 'var(--slate-500)', 'var(--slate-100)'],
-    inactive: ['var(--surface-card)', 'var(--slate-400)', 'var(--slate-300)'],
+    draft: ['var(--slate-100)', 'var(--slate-600)', 'var(--slate-200)'],
+    inactive: ['var(--surface-card)', 'var(--text-faint)', 'var(--slate-300)'],
 };
 
 /** Invoice, report and account state. Copy stays lowercase in data, Capitalised on screen. */
@@ -40,8 +40,8 @@ const StatusBadge = ({ status = '', style }: { status?: string; style?: CSSPrope
     const key = String(status).toLowerCase();
     const [bg, fg, border] = styles[key] || [
         'var(--slate-100)',
-        'var(--slate-500)',
-        'var(--slate-100)',
+        'var(--slate-600)',
+        'var(--slate-200)',
     ];
 
     return (

@@ -45,6 +45,12 @@ const billedIn = async (range: TDateRange) => {
         discount: { $sum: '$discountAmount' },
         net: { $sum: '$netPayable' },
         due: { $sum: '$dueAmount' },
+        // Settled against these invoices. Distinct from `collected`, which is
+        // counted on payment date: a part-payment taken today against last
+        // week's invoice lands in this week's `collected` but in last week's
+        // `paid`. Pairing it with `due` keeps the two halves of the same
+        // invoices comparable.
+        paid: { $sum: '$paidAmount' },
         // Commission is earned when the patient pays, so an unpaid invoice
         // contributes none of it — and the revenue tile below subtracts only
         // what is genuinely owed.
@@ -63,7 +69,31 @@ const billedIn = async (range: TDateRange) => {
     discount: round2(result?.discount ?? 0),
     net: round2(result?.net ?? 0),
     due: round2(result?.due ?? 0),
+    paid: round2(result?.paid ?? 0),
     commission: round2(result?.commission ?? 0),
+  };
+};
+
+/**
+ * Report progress for the invoices raised in a window, counted per test rather
+ * than per invoice — an invoice with three tests can be two-thirds reported,
+ * and the delivery desk works a test at a time.
+ */
+const reportStatusIn = async (range: TDateRange) => {
+  const rows = await Invoice.aggregate([
+    { $match: { ...liveInvoice, ...dateRangeFilter('visitDate', range) } },
+    { $unwind: '$items' },
+    // A cancelled test is not a report anybody is waiting for.
+    { $match: { 'items.isCancelled': { $ne: true } } },
+    { $group: { _id: '$items.reportStatus', count: { $sum: 1 } } },
+  ]);
+
+  const byStatus = Object.fromEntries(rows.map((row) => [row._id, row.count]));
+
+  return {
+    pending: byStatus.pending ?? 0,
+    uploaded: byStatus.uploaded ?? 0,
+    delivered: byStatus.delivered ?? 0,
   };
 };
 
@@ -76,6 +106,8 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
     todayPatients,
     periodCollected,
     periodBilled,
+    periodPatients,
+    periodReports,
     commissionSplit,
     trend,
     byReferrer,
@@ -92,6 +124,11 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
     }),
     collectedIn(range),
     billedIn(range),
+    Patient.countDocuments({
+      isDeleted: false,
+      ...dateRangeFilter('createdAt', range),
+    }),
+    reportStatusIn(range),
 
     // Commission accrued vs paid vs pending (proposal §4.8).
     Invoice.aggregate([
@@ -169,9 +206,17 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
       { $sort: { collected: -1 } },
     ]),
 
-    // Total outstanding across all time, not just the window.
+    // Outstanding on the invoices raised in the window, so it moves with the
+    // range filter like every other tile. The all-time figure is still on the
+    // Dues report, which is where a full ledger belongs.
     Invoice.aggregate([
-      { $match: { ...liveInvoice, dueAmount: { $gt: 0 } } },
+      {
+        $match: {
+          ...liveInvoice,
+          dueAmount: { $gt: 0 },
+          ...dateRangeFilter('visitDate', range),
+        },
+      },
       {
         $group: {
           _id: null,
@@ -202,6 +247,8 @@ const getAdminDashboard = async (range: TDateRange, groupBy: TGroupBy) => {
     },
     period: {
       collected: periodCollected,
+      newPatients: periodPatients,
+      reports: periodReports,
       ...periodBilled,
       /**
        * What the centre keeps: cash in hand, less the commission owed to the

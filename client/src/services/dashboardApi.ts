@@ -38,11 +38,15 @@ export type AdminDashboard = {
     };
     period: {
         collected: number;
+        newPatients: number;
+        reports: { pending: number; uploaded: number; delivered: number };
         invoiceCount: number;
         gross: number;
         discount: number;
         net: number;
         due: number;
+        /** Settled against the invoices raised in the window. */
+        paid: number;
         commission: number;
         /** Cash collected less the commission owed on it — what the centre keeps. */
         revenue: number;

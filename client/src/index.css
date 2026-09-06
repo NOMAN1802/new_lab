@@ -65,8 +65,13 @@
 
   --text-heading: var(--slate-900);
   --text-body: var(--slate-700);
-  --text-muted: var(--slate-500);
-  --text-faint: var(--slate-400);
+  /* Both of these sit on 12-13px text, so they are measured against the
+     darkest surface they are ever drawn on (--surface-muted, #EAE6DD) rather
+     than against paper: muted 6.14:1, faint 4.61:1, body 8.96:1. The old pair
+     (slate-500/slate-400) came in at 3.68 and 2.04 — legible on a good screen,
+     invisible on a laptop at an angle. */
+  --text-muted: var(--slate-600);
+  --text-faint: #69665E;
   --text-onbrand: var(--white);
   --text-link: var(--brand);
   --text-link-hover: var(--brand-dark);
@@ -80,7 +85,7 @@
   --chart-3: #868074;
   --chart-4: #C3BCAF;
   --chart-grid: var(--slate-200);
-  --chart-axis: var(--slate-500);
+  --chart-axis: var(--slate-600);
   --chart-track: var(--slate-200);
 
   /* Type */
@@ -244,3 +249,42 @@ table { border-collapse: collapse; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: var(--radius-pill); }
 ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+/* Six dashboard tiles as two rows of three. Inline styles cannot carry a
+   media query, so the responsive collapse lives here: three across on a
+   desktop, two on a tablet, one on a phone — where three would squeeze a
+   figure like ৳92,662.00 past its tile. */
+.stat-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap-grid);
+}
+@media (max-width: 1100px) {
+  .stat-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .stat-grid-3 { grid-template-columns: 1fr; }
+}
+
+/* Responsive visibility.
+   These carry !important on purpose. The elements they hide set `display`
+   in an inline style object, and an inline style beats any class — which is
+   why `hidden lg:flex` on the sidebar and `lg:hidden` on the menu button
+   silently did nothing, leaving the 272px desktop sidebar on screen on
+   phones and the hamburger on screen on desktops. Overriding an inline
+   declaration is the one case !important is the correct tool. */
+.only-desktop { display: none !important; }
+.only-mobile { display: flex !important; }
+@media (min-width: 1024px) {
+  .only-desktop { display: flex !important; }
+  .only-mobile { display: none !important; }
+}
+
+/* The global search needs real width to be usable. On a phone the top bar is
+   already carrying menu, brand, bell, language and avatar, so the search pill
+   ends up a few characters wide and overlapping its neighbours — it is hidden
+   below 640px instead, where the nav drawer covers getting around. */
+.search-wrap { display: none !important; }
+@media (min-width: 640px) {
+  .search-wrap { display: block !important; }
+}

@@ -61,7 +61,7 @@ const CommissionReportPage = () => {
                 <ErrorState title={t('crep.loadError')} onRetry={refetch} />
             ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard label={t('crep.referrers')} value={data.summary.referrers} icon="user-round-search" accent="brand" />
                         <StatCard label={t('rep.discountsGiven')} value={money(data.summary.discountGiven)} icon="percent" accent="neutral" />
                         <StatCard

@@ -79,6 +79,7 @@ const NotificationBell = () => {
                         right: 0,
                         top: 'calc(100% + 8px)',
                         width: '320px',
+                        maxWidth: 'calc(100vw - 24px)',
                         background: 'var(--surface-card)',
                         border: '1px solid var(--border-card)',
                         borderRadius: 'var(--radius-lg)',

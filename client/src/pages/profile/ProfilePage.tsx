@@ -58,7 +58,7 @@ const ProfilePage = () => {
                         </Button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%),1fr))', gap: 12 }}>
                         <DetailRow icon="user-round" label={t('pform.fullName')} value={user.name} />
                         <DetailRow icon="mail" label={t('fld.emailAddress')} value={user.email} />
                         <DetailRow icon="phone" label={t('fld.mobileNumber')} value={user.mobileNumber} />
