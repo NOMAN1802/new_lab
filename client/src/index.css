@@ -65,8 +65,13 @@
 
   --text-heading: var(--slate-900);
   --text-body: var(--slate-700);
-  --text-muted: var(--slate-500);
-  --text-faint: var(--slate-400);
+  /* Both of these sit on 12-13px text, so they are measured against the
+     darkest surface they are ever drawn on (--surface-muted, #EAE6DD) rather
+     than against paper: muted 6.14:1, faint 4.61:1, body 8.96:1. The old pair
+     (slate-500/slate-400) came in at 3.68 and 2.04 — legible on a good screen,
+     invisible on a laptop at an angle. */
+  --text-muted: var(--slate-600);
+  --text-faint: #69665E;
   --text-onbrand: var(--white);
   --text-link: var(--brand);
   --text-link-hover: var(--brand-dark);
@@ -80,7 +85,7 @@
   --chart-3: #868074;
   --chart-4: #C3BCAF;
   --chart-grid: var(--slate-200);
-  --chart-axis: var(--slate-500);
+  --chart-axis: var(--slate-600);
   --chart-track: var(--slate-200);
 
   /* Type */
