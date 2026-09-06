@@ -9,3 +9,5 @@ dist
 
 # Generated invoice PDFs
 src/invoices/*.pdf
+
+.vercel
