@@ -43,7 +43,7 @@ const LoginPage = () => {
         <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--surface-page)' }}>
             {/* Brand panel */}
             <div
-                className="hidden lg:flex"
+                className="only-desktop"
                 style={{
                     width: '42%',
                     minWidth: 380,

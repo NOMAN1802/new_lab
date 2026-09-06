@@ -83,7 +83,7 @@ const PatientReportPage = () => {
                 <ErrorState title={t('err.patientReport')} onRetry={refetch} />
             ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard label={t('rep.visits')} value={data.summary.visits} icon="clipboard-list" />
                         <StatCard label={t('rep.newPatients')} value={data.summary.newPatients} icon="user-round-plus" accent="brand" />
                         <StatCard label={t('rep.testsPerformed')} value={data.summary.testsPerformed} icon="flask-conical" accent="neutral" />

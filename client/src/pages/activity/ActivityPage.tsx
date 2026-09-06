@@ -65,7 +65,7 @@ const ActivityPage = () => {
             <DateRangePicker value={range} onChange={(r) => resetTo(() => setRange(r))} />
 
             {byUser.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                     {byUser.slice(0, 4).map((row) => (
                         <StatCard
                             key={row._id}

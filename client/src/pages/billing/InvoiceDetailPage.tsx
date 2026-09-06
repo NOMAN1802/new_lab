@@ -268,7 +268,7 @@ const InvoiceDetailPage = () => {
                 </InlineAlert>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px,1fr))', gap: 'var(--gap-grid)', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%),1fr))', gap: 'var(--gap-grid)', alignItems: 'start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-grid)' }}>
                     <Panel title={t('inv.testsReports')} padding="var(--pad-panel) var(--pad-panel) 8px">
                         <DataTable<InvoiceItem & { id: string }>

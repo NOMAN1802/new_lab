@@ -81,7 +81,7 @@ const FinancialReportPage = () => {
                 />
             ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard label={t('dash.cashCollected')} value={money(summary.cashCollected)} icon="banknote" accent="accent" />
                         <StatCard
                             label={t('rep.netBilled')}
@@ -93,7 +93,7 @@ const FinancialReportPage = () => {
                         <StatCard label={t('rep.commissionAccrued')} value={money(summary.commissionAccrued)} icon="user-round-search" accent="warning" />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard label={t('rep.grossBilled')} value={money(summary.grossBilled)} accent="neutral" />
                         <StatCard
                             label={t('rep.discountsGiven')}
@@ -124,7 +124,7 @@ const FinancialReportPage = () => {
                         )}
                     </Panel>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <Panel title={t('rep.collectionByStaff')}>
                             <DataTable<UserCollectionRow & { id: string }>
                                 dense

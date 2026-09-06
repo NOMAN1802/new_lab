@@ -61,7 +61,7 @@ const DuesReportPage = () => {
                 <ErrorState title={t('dues.loadError')} onRetry={refetch} />
             ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 'var(--gap-grid)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                         <StatCard
                             label={t('dues.totalOutstanding')}
                             value={money(data.summary.totalDue)}

@@ -121,7 +121,7 @@ const TestCategoriesPage = () => {
             {isFormOpen && (
                 <Panel title={editing ? `Edit ${editing.name}` : 'New department'} style={{ borderColor: 'var(--indigo-200)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 18 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%),1fr))', gap: 18 }}>
                             <TextField label={t('fld.departmentName')} value={name} onChange={(e) => setName(e.target.value)} placeholder="Pathology" />
                             <TextField
                                 label={t('fld.description')}

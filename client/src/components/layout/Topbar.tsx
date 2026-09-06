@@ -112,7 +112,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: 1, minWidth: 0 }}>
-                <button type="button" onClick={onMenuClick} aria-label={t('shell.openMenu')} className="lg:hidden" style={iconBtn}>
+                <button type="button" onClick={onMenuClick} aria-label={t('shell.openMenu')} className="only-mobile" style={iconBtn}>
                     <Icon name="menu" size={18} />
                 </button>
                 <h1
@@ -191,6 +191,7 @@ const Topbar = ({ onMenuClick }: TopbarProps) => {
                                 right: 0,
                                 top: 'calc(100% + 8px)',
                                 width: '224px',
+                                maxWidth: 'calc(100vw - 24px)',
                                 background: 'var(--surface-card)',
                                 border: '1px solid var(--border-card)',
                                 borderRadius: 'var(--radius-lg)',

@@ -361,7 +361,7 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
         <>
             {/* Desktop */}
             <aside
-                className="hidden lg:flex"
+                className="only-desktop"
                 style={{
                     ...surface,
                     width: collapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',

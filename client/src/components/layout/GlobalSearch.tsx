@@ -161,7 +161,7 @@ const GlobalSearch = () => {
     };
 
     return (
-        <div ref={wrapRef} style={{ position: 'relative', flex: '1 1 380px', maxWidth: '420px', minWidth: 0 }}>
+        <div ref={wrapRef} className="search-wrap" style={{ position: 'relative', flex: '1 1 380px', maxWidth: '420px', minWidth: 0 }}>
             <span
                 style={{
                     position: 'absolute',
