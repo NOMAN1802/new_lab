@@ -69,6 +69,44 @@ app.use(
   })
 );
 
+/**
+ * The patient QR surface is unauthenticated, so it is an enumeration target in
+ * a way the staff API is not. The broad 500/15min limit above is shared with
+ * genuine reception traffic and far too loose here.
+ *
+ * The verify endpoint gets its own tighter budget on top: the per-invoice
+ * lockout in the service stops someone grinding one invoice, and this stops
+ * them spreading the same effort across many.
+ */
+app.use(
+  '/api/v1/public/reports/:token/verify',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message: 'Too many attempts. Please try again in 15 minutes.',
+    },
+  })
+);
+
+app.use(
+  '/api/v1/public',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message: 'Too many requests. Please try again shortly.',
+    },
+  })
+);
+
 app.use('/api/v1', routes);
 
 app.get('/', (_req: Request, res: Response) => {

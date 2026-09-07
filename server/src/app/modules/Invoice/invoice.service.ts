@@ -14,6 +14,7 @@ import {
   uploadReportFile,
 } from '../../utils/fileUpload';
 import { round2 } from '../../utils/money';
+import { generatePublicToken } from '../../utils/publicToken';
 import { recordActivity } from '../ActivityLog/activity-log.service';
 import { CommissionPayout } from '../CommissionPayout/commission-payout.model';
 import { nextSequence } from '../Counter/counter.model';
@@ -186,6 +187,7 @@ const createInvoice = async (
     commissionStatus: 'pending',
     notes: payload.notes,
     createdBy: new Types.ObjectId(userId),
+    publicToken: generatePublicToken(),
   });
 
   await recordActivity({
@@ -267,6 +269,19 @@ const getInvoice = async (id: string): Promise<TInvoice> => {
     .populate('patient', 'patientId name phone age gender address');
 
   if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
+
+  /**
+   * Invoices raised before the QR feature carry no token, and the print view
+   * needs one. Minting it here rather than in a migration means there is no
+   * deploy-ordering step and no script to remember: the first time anyone
+   * opens an old invoice it acquires a token, once, and keeps it. Reprints
+   * therefore produce the same QR every time.
+   */
+  if (!invoice.publicToken) {
+    invoice.publicToken = generatePublicToken();
+    await invoice.save();
+  }
+
   return invoice;
 };
 

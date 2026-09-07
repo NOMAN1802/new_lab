@@ -34,6 +34,7 @@ const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const UsersPage = lazy(() => import('@/pages/users/UsersPage'));
 const ActivityPage = lazy(() => import('@/pages/activity/ActivityPage'));
+const PublicReportPage = lazy(() => import('@/pages/public/PublicReportPage'));
 import { useRefreshTokenMutation } from '@/services/authApi';
 import { useAppDispatch, useAppSelector } from '@/hooks/store';
 import { logout, setInitializing } from '@/features/auth/authSlice';
@@ -76,6 +77,12 @@ function App() {
                     path="/login"
                     element={accessToken ? <Navigate to="/" replace /> : <LoginPage />}
                 />
+
+                {/* Patient-facing, reached by scanning the QR on an invoice.
+                    Outside ProtectedRoute on purpose, and declared explicitly
+                    because the catch-all below would otherwise send it to the
+                    login page. */}
+                <Route path="/r/:token" element={<PublicReportPage />} />
 
                 <Route element={<ProtectedRoute />}>
                     <Route element={<ShellLayout />}>

@@ -21,6 +21,9 @@ type TextFieldProps = {
     max?: string | number;
     step?: string | number;
     autoComplete?: string;
+    /** A phone keypad for digit-only fields, and a hard cap on length. */
+    inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email' | 'search' | 'url';
+    maxLength?: number;
     size?: 'sm' | 'md' | 'lg';
     trailing?: ReactNode;
     optional?: boolean;

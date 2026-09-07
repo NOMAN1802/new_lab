@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
+import { QRCodeSVG } from 'qrcode.react';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import { CENTRE } from '@/lib/centre';
@@ -240,6 +241,25 @@ const PrintInvoicePage = () => {
                                 {CENTRE.phone ? ` · ${CENTRE.phone}` : ''}
                             </p>
                         </div>
+                        {/* Scanned by the patient to read their own reports.
+                            SVG rather than a data-URL image: it stays sharp at
+                            A4 and needs no async round trip inside the
+                            react-to-print capture. The sheet stays English like
+                            the rest of the printed document. */}
+                        {invoice.publicToken && (
+                            <div className="shrink-0 text-center">
+                                <QRCodeSVG
+                                    value={`${window.location.origin}/r/${invoice.publicToken}`}
+                                    size={74}
+                                    level="M"
+                                    marginSize={0}
+                                />
+                                <p className="mt-1 max-w-[88px] text-[9px] leading-tight">
+                                    Scan for your reports
+                                </p>
+                            </div>
+                        )}
+
                         <div className="shrink-0 text-center">
                             <div className="mb-1.5 w-44 border-t border-neutral-500" />
                             <p>Authorised signature</p>

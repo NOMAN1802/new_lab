@@ -34,6 +34,15 @@ const COMMISSION_FIELDS = [
  */
 export const serializeInvoice = (invoice: TInvoice, role: TUserRole): TPlain => {
   const plain = toPlain(invoice);
+
+  /**
+   * Brute-force bookkeeping for the patient QR check. Both roles print the
+   * invoice, so publicToken stays -- it is the QR -- but the attempt counter
+   * and lockout are the server's own business and would only invite a UI to
+   * start making decisions from them.
+   */
+  delete plain.publicAccess;
+
   if (role === 'admin') return plain;
 
   for (const field of COMMISSION_FIELDS) {

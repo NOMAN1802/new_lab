@@ -116,6 +116,14 @@ const InvoiceSchema = new Schema<TInvoice>(
     cancelledAt: { type: Date },
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, trim: true },
+
+    // Scanned off the printed invoice. Sparse, because invoices created before
+    // this feature have none until they are next read.
+    publicToken: { type: String, unique: true, sparse: true },
+    publicAccess: {
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date },
+    },
   },
   { timestamps: true }
 );

@@ -106,6 +106,28 @@ export type TInvoice = {
   cancelledBy?: Types.ObjectId;
   cancelReason?: string;
 
+  /**
+   * The capability a patient scans off their printed invoice. Opaque and
+   * random rather than a signed payload: a JWT would make the QR dense enough
+   * to be awkward to scan from paper, and a stored token can be revoked by
+   * regenerating this one field.
+   *
+   * Held in plaintext on purpose. The invoice has to reprint with the same QR,
+   * so a hash would break reprints -- and the token is printed on paper
+   * anyway. What actually guards the reports is the phone check below.
+   */
+  publicToken?: string;
+
+  /**
+   * Brute-force state for that phone check. It lives on the document because
+   * the API runs serverless: there is no process to hold a counter between
+   * requests.
+   */
+  publicAccess?: {
+    failedAttempts: number;
+    lockedUntil?: Date;
+  };
+
   createdAt?: Date;
   updatedAt?: Date;
 };
