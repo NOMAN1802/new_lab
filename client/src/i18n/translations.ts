@@ -241,6 +241,49 @@ export const translations = {
     'dash.ofTests': { en: 'of', bn: 'মোট' },
     'dash.testsWord': { en: 'tests', bn: 'টেস্টের মধ্যে' },
     'dash.invoicesSettled': { en: 'settled', bn: 'নিষ্পন্ন' },
+
+    /* Patient-facing page reached by scanning the QR on a printed invoice.
+       This is the only screen a member of the public ever sees, so the wording
+       avoids internal vocabulary: "reports", not "items"; "centre", not "lab". */
+    'qr.caption': { en: 'Scan for your reports', bn: 'রিপোর্ট দেখতে স্ক্যান করুন' },
+    'pub.title': { en: 'Your reports', bn: 'আপনার রিপোর্ট' },
+    'pub.invoice': { en: 'Invoice', bn: 'ইনভয়েস' },
+    'pub.visitDate': { en: 'Visit date', bn: 'ভিজিটের তারিখ' },
+    'pub.verifyTitle': { en: 'Confirm it is you', bn: 'আপনি কিনা নিশ্চিত করুন' },
+    'pub.verifyBody': {
+        en: 'Enter the last 4 digits of the phone number given at the counter.',
+        bn: 'কাউন্টারে দেওয়া ফোন নম্বরের শেষ ৪ সংখ্যা লিখুন।',
+    },
+    'pub.last4': { en: 'Last 4 digits', bn: 'শেষ ৪ সংখ্যা' },
+    'pub.viewReports': { en: 'View reports', bn: 'রিপোর্ট দেখুন' },
+    'pub.checking': { en: 'Checking…', bn: 'যাচাই করা হচ্ছে…' },
+    'pub.notFound': {
+        en: 'This link is not valid. Please check with the centre.',
+        bn: 'এই লিংকটি সঠিক নয়। অনুগ্রহ করে সেন্টারে যোগাযোগ করুন।',
+    },
+    'pub.cancelled': {
+        en: 'This invoice has been cancelled. Please contact the centre.',
+        bn: 'এই ইনভয়েসটি বাতিল করা হয়েছে। অনুগ্রহ করে সেন্টারে যোগাযোগ করুন।',
+    },
+    'pub.dueTitle': { en: 'Payment pending', bn: 'পেমেন্ট বাকি আছে' },
+    'pub.dueBody': {
+        en: 'Your reports will be available here once the invoice is settled in full.',
+        bn: 'ইনভয়েস সম্পূর্ণ পরিশোধ হলে আপনার রিপোর্ট এখানে দেখা যাবে।',
+    },
+    'pub.amountDue': { en: 'Amount due', bn: 'বকেয়া' },
+    'pub.paidSoFar': { en: 'Paid so far', bn: 'পরিশোধিত' },
+    'pub.total': { en: 'Total', bn: 'সর্বমোট' },
+    'pub.notReady': { en: 'Not ready yet', bn: 'এখনও প্রস্তুত নয়' },
+    'pub.view': { en: 'View', bn: 'দেখুন' },
+    'pub.noReports': {
+        en: 'No reports have been uploaded for this invoice yet.',
+        bn: 'এই ইনভয়েসের জন্য এখনও কোনো রিপোর্ট আপলোড করা হয়নি।',
+    },
+    'pub.opening': { en: 'Opening…', bn: 'খোলা হচ্ছে…' },
+    'pub.sessionExpired': {
+        en: 'This session has expired. Please scan the code again.',
+        bn: 'সেশনের মেয়াদ শেষ। অনুগ্রহ করে আবার স্ক্যান করুন।',
+    },
     'dash.netBilled': { en: 'Net billed', bn: 'নিট বিল' },
 
 

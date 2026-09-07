@@ -13,7 +13,12 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
     webp: 'image/webp',
 };
 
-const resolveType = (blob: Blob, fileName: string): string => {
+/**
+ * Exported for the public patient page, which fetches through its own API
+ * slice but must re-type blobs identically — a report stored without a usable
+ * MIME type would otherwise refuse to render in the same modal.
+ */
+export const resolveType = (blob: Blob, fileName: string): string => {
     if (blob.type && blob.type !== 'application/octet-stream') return blob.type;
 
     const extension = fileName.split('.').pop()?.toLowerCase() ?? '';

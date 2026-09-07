@@ -86,6 +86,8 @@ export type Invoice = {
     createdBy?: { _id: string; name: string; email: string } | string;
     isCancelled?: boolean;
     cancelReason?: string;
+    /** Encoded into the QR on the printed invoice. Absent on list payloads. */
+    publicToken?: string;
     createdAt: string;
 };
 
