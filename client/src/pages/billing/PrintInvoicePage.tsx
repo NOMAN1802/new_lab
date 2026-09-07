@@ -6,6 +6,7 @@ import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import { CENTRE } from '@/lib/centre';
 import { formatDate, formatDateTime, money } from '@/lib/format';
+import { isUnreachableBase, publicReportUrl } from '@/lib/publicUrl';
 import { useGetInvoiceQuery } from '@/services/invoicesApi';
 import { useGetInvoicePaymentsQuery } from '@/services/paymentsApi';
 
@@ -57,6 +58,15 @@ const PrintInvoicePage = () => {
             `}</style>
 
             <div className="mx-auto max-w-[52rem] px-4">
+                {invoice?.publicToken && isUnreachableBase() && (
+                    <div className="mb-3 rounded-sm border border-amber-400 bg-amber-50 px-4 py-3 text-[13px] text-amber-900 print:hidden">
+                        <strong>The QR code on this invoice will not work for patients.</strong> It
+                        points at <code>{publicReportUrl(invoice.publicToken)}</code>, which only
+                        opens on this machine. Print from the live site, or set
+                        VITE_PUBLIC_BASE_URL.
+                    </div>
+                )}
+
                 <div className="mb-4 flex justify-end gap-3 print:hidden">
                     <button
                         type="button"
@@ -249,7 +259,7 @@ const PrintInvoicePage = () => {
                         {invoice.publicToken && (
                             <div className="shrink-0 text-center">
                                 <QRCodeSVG
-                                    value={`${window.location.origin}/r/${invoice.publicToken}`}
+                                    value={publicReportUrl(invoice.publicToken)}
                                     size={74}
                                     level="M"
                                     marginSize={0}
