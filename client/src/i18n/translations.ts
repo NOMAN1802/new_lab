@@ -261,6 +261,14 @@ export const translations = {
         en: 'This link is not valid. Please check with the centre.',
         bn: 'এই লিংকটি সঠিক নয়। অনুগ্রহ করে সেন্টারে যোগাযোগ করুন।',
     },
+    /* A failure to reach the server is not the same as a bad link, and saying
+       "not valid" for both sends a patient to the counter over what may be a
+       dropped connection. */
+    'pub.unreachable': {
+        en: 'Could not reach the centre’s system. Please check your connection and try again.',
+        bn: 'সেন্টারের সিস্টেমে পৌঁছানো যায়নি। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',
+    },
+    'pub.retry': { en: 'Try again', bn: 'আবার চেষ্টা করুন' },
     'pub.cancelled': {
         en: 'This invoice has been cancelled. Please contact the centre.',
         bn: 'এই ইনভয়েসটি বাতিল করা হয়েছে। অনুগ্রহ করে সেন্টারে যোগাযোগ করুন।',

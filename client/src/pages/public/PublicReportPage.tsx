@@ -32,7 +32,7 @@ const PublicReportPage = () => {
     const { token = '' } = useParams();
     const t = useT();
 
-    const { data: summary, isLoading, isError } = useGetPublicSummaryQuery(token);
+    const { data: summary, isLoading, isError, error, refetch } = useGetPublicSummaryQuery(token);
     const [verify, { isLoading: verifying }] = useVerifyPublicReportMutation();
     const [fetchFile] = useGetPublicReportFileMutation();
 
@@ -129,12 +129,31 @@ const PublicReportPage = () => {
 
     if (isLoading) return shell(card(<p style={{ fontSize: 13 }}>{t('pub.checking')}</p>));
 
-    // A bad or unknown token is indistinguishable from a revoked one, on
-    // purpose: nothing here tells someone probing links whether one exists.
+    /**
+     * Only a 404 means the link itself is wrong. A server that is down, a
+     * rate limit or a lost connection are different problems with different
+     * answers, and telling a patient their link is invalid when the API is
+     * simply unreachable sends them to the counter for nothing.
+     *
+     * A bad token and a revoked one still look identical, deliberately:
+     * nothing here tells someone probing links whether one exists.
+     */
     if (isError || !summary) {
+        const status = (error as { status?: number | string } | undefined)?.status;
+        const badLink = status === 404;
+
         return shell(
             card(
-                <p style={{ fontSize: 13, color: 'var(--text-body)' }}>{t('pub.notFound')}</p>
+                <>
+                    <p style={{ fontSize: 13, color: 'var(--text-body)' }}>
+                        {badLink ? t('pub.notFound') : t('pub.unreachable')}
+                    </p>
+                    {!badLink && (
+                        <Button variant="secondary" onClick={() => refetch()}>
+                            {t('pub.retry')}
+                        </Button>
+                    )}
+                </>
             )
         );
     }
