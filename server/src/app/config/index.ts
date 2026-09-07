@@ -20,4 +20,11 @@ export default {
   cloudinary_api_key: process.env.CLOUDINARY_API_KEY,
   cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET,
   client_url: process.env.CLIENT_URL,
+  /**
+   * Signs the short-lived session a patient gets after passing the phone check
+   * on a scanned invoice. Deliberately not JWT_ACCESS_SECRET: separate keys
+   * mean a patient session can never be replayed against a staff endpoint,
+   * whatever claims it carries.
+   */
+  public_report_secret: process.env.PUBLIC_REPORT_SECRET,
 };

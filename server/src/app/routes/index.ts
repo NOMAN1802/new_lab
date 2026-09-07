@@ -1,5 +1,6 @@
 import express from 'express';
 import { activityLogRoutes } from '../modules/ActivityLog/activity-log.route';
+import { publicReportRoutes } from '../modules/PublicReport/public-report.route';
 import { AuthRoutes } from '../modules/Auth/auth.route';
 import { commissionPayoutRoutes } from '../modules/CommissionPayout/commission-payout.route';
 import { dashboardRoutes } from '../modules/Dashboard/dashboard.route';
@@ -27,6 +28,8 @@ const moduleRoutes = [
   { path: '/dashboard', route: dashboardRoutes },
   { path: '/reports', route: reportsRoutes },
   { path: '/activity', route: activityLogRoutes },
+  // Unauthenticated. Reached by a patient scanning the QR on their invoice.
+  { path: '/public', route: publicReportRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
