@@ -2,28 +2,8 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiErrorMessage } from '@/lib/format';
 import { downloadObjectUrl, downloadReportBlob } from '@/lib/openReport';
+import { resolveType } from '@/lib/reportType';
 import { useGetReportFileMutation } from '@/services/invoicesApi';
-
-/** Falls back to the filename when storage did not record a usable type. */
-const TYPE_BY_EXTENSION: Record<string, string> = {
-    pdf: 'application/pdf',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    webp: 'image/webp',
-};
-
-/**
- * Exported for the public patient page, which fetches through its own API
- * slice but must re-type blobs identically — a report stored without a usable
- * MIME type would otherwise refuse to render in the same modal.
- */
-export const resolveType = (blob: Blob, fileName: string): string => {
-    if (blob.type && blob.type !== 'application/octet-stream') return blob.type;
-
-    const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
-    return TYPE_BY_EXTENSION[extension] ?? 'application/octet-stream';
-};
 
 export type ReportTarget = {
     invoiceId: string;

@@ -1,22 +1,26 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import Icon from '@/components/ui/Icon';
 import LanguageToggle from '@/components/layout/LanguageToggle';
 import ReportPreviewModal from '@/components/common/ReportPreviewModal';
-import { resolveType } from '@/hooks/useReportPreview';
+import { resolveType } from '@/lib/reportType';
 import type { ReportPreview } from '@/hooks/useReportPreview';
 import { downloadObjectUrl } from '@/lib/openReport';
 import { useT } from '@/i18n/useLanguage';
-import { apiErrorMessage, formatDate, money } from '@/lib/format';
+import { formatDate, money } from '@/lib/format';
 import {
-    useGetPublicSummaryQuery,
-    useGetPublicReportFileMutation,
-    useVerifyPublicReportMutation,
-} from '@/services/publicApi';
-import type { PublicPayload, PublicReportItem } from '@/services/publicApi';
+    PublicReportError,
+    fetchPublicReportFile,
+    fetchPublicSummary,
+    verifyPublicReport,
+} from '@/lib/publicReportClient';
+import type {
+    PublicPayload,
+    PublicReportItem,
+    PublicSummary,
+} from '@/lib/publicReportClient';
 
 const CENTRE = 'New Lab Diagnostic & Consultation Centre';
 
@@ -32,9 +36,12 @@ const PublicReportPage = () => {
     const { token = '' } = useParams();
     const t = useT();
 
-    const { data: summary, isLoading, isError, error, refetch } = useGetPublicSummaryQuery(token);
-    const [verify, { isLoading: verifying }] = useVerifyPublicReportMutation();
-    const [fetchFile] = useGetPublicReportFileMutation();
+    const [summary, setSummary] = useState<PublicSummary | null>(null);
+    const [loadError, setLoadError] = useState<PublicReportError | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [verifying, setVerifying] = useState(false);
+    const [formError, setFormError] = useState('');
 
     const [last4, setLast4] = useState('');
     const [payload, setPayload] = useState<PublicPayload | null>(null);
@@ -46,6 +53,21 @@ const PublicReportPage = () => {
     const [preview, setPreview] = useState<ReportPreview | null>(null);
     const [openingId, setOpeningId] = useState<string | null>(null);
     const objectUrlRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        setIsLoading(true);
+        setLoadError(null);
+
+        fetchPublicSummary(token)
+            .then((result) => { if (!cancelled) setSummary(result); })
+            .catch((err: PublicReportError) => { if (!cancelled) setLoadError(err); })
+            .finally(() => { if (!cancelled) setIsLoading(false); });
+
+        // A token change or a retry supersedes an in-flight request; without
+        // this the slower of the two could overwrite the newer answer.
+        return () => { cancelled = true; };
+    }, [token, reloadKey]);
 
     const releaseUrl = () => {
         if (objectUrlRef.current) {
@@ -61,14 +83,24 @@ const PublicReportPage = () => {
 
     const submit = async (event: React.FormEvent) => {
         event.preventDefault();
+        setVerifying(true);
+        setFormError('');
+
         try {
-            const result = await verify({ token, last4 }).unwrap();
-            const { accessToken: issued, ...rest } = result;
+            const { accessToken: issued, ...rest } = await verifyPublicReport(token, last4);
             setAccessToken(issued);
             setPayload(rest as PublicPayload);
-        } catch (error) {
-            toast.error(apiErrorMessage(error, t('pub.notFound')));
+        } catch (err) {
+            // Shown against the field rather than in a toast: a toast on a
+            // phone is easy to miss and gone before it is read.
+            setFormError(
+                err instanceof PublicReportError && err.status !== 0
+                    ? err.message
+                    : t('pub.unreachable')
+            );
             setLast4('');
+        } finally {
+            setVerifying(false);
         }
     };
 
@@ -82,15 +114,17 @@ const PublicReportPage = () => {
         setPreview({ invoiceId: '', itemId: item.itemId, fileName, caption: item.testName });
 
         try {
-            const blob = await fetchFile({ token, itemId: item.itemId, accessToken }).unwrap();
+            const blob = await fetchPublicReportFile(token, item.itemId, accessToken);
             const mimeType = resolveType(blob, fileName);
             const url = URL.createObjectURL(new Blob([blob], { type: mimeType }));
             objectUrlRef.current = url;
             setPreview((current) => (current ? { ...current, url, mimeType } : current));
-        } catch (error) {
-            const message = apiErrorMessage(error, t('pub.sessionExpired'));
+        } catch (err) {
+            const message =
+                err instanceof PublicReportError && err.status !== 0
+                    ? err.message
+                    : t('pub.sessionExpired');
             setPreview((current) => (current ? { ...current, error: message } : current));
-            toast.error(message);
         } finally {
             setOpeningId(null);
         }
@@ -138,9 +172,8 @@ const PublicReportPage = () => {
      * A bad token and a revoked one still look identical, deliberately:
      * nothing here tells someone probing links whether one exists.
      */
-    if (isError || !summary) {
-        const status = (error as { status?: number | string } | undefined)?.status;
-        const badLink = status === 404;
+    if (loadError || !summary) {
+        const badLink = loadError?.status === 404;
 
         return shell(
             card(
@@ -149,7 +182,7 @@ const PublicReportPage = () => {
                         {badLink ? t('pub.notFound') : t('pub.unreachable')}
                     </p>
                     {!badLink && (
-                        <Button variant="secondary" onClick={() => refetch()}>
+                        <Button variant="secondary" onClick={() => setReloadKey((n) => n + 1)}>
                             {t('pub.retry')}
                         </Button>
                     )}
@@ -197,6 +230,7 @@ const PublicReportPage = () => {
                             value={last4}
                             onChange={(event) => setLast4(event.target.value.replace(/\D/g, '').slice(0, 4))}
                             placeholder="••••"
+                            error={formError || undefined}
                         />
                         <Button type="submit" block loading={verifying} disabled={last4.length !== 4}>
                             {t('pub.viewReports')}
