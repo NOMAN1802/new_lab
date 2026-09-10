@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import BrandLogo from '@/components/brand/BrandLogo';
+import BrandMark from '@/components/brand/BrandMark';
 import { BRAND_BLUE, BRAND_GREEN, BRAND_TAGLINE_BN, BRAND_VALUES } from '@/lib/brand';
 import { CENTRE } from '@/lib/centre';
 import { formatDateTime, money } from '@/lib/format';
@@ -124,6 +125,16 @@ const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: 
 
     return (
         <section className="copy" style={{ minHeight: `${COPY_HEIGHT_MM}mm` }}>
+            {/*
+              The watermark: the centre's mark set large and faint in the middle
+              of the page, behind the bill, as on the centre's stationery. It is
+              part of every copy, so a photocopy or a forgery without it stands
+              out, and it never competes with the figures printed over it.
+            */}
+            <div className="watermark" aria-hidden="true">
+                <BrandMark size={300} />
+            </div>
+
             <LetterheadTop />
 
             <div className="mt-2 flex justify-center">
@@ -328,7 +339,14 @@ const PrintInvoicePage = () => {
                 }
                 .figure { font-family: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace; }
                 .bn { font-family: 'Noto Sans Bengali', sans-serif; }
-                .copy { display: flex; flex-direction: column; }
+                .copy { display: flex; flex-direction: column; position: relative; }
+                /* Everything in a copy sits above the watermark. */
+                .copy > *:not(.watermark) { position: relative; z-index: 1; }
+                .watermark {
+                    position: absolute; inset: 0; z-index: 0;
+                    display: flex; align-items: center; justify-content: center;
+                    pointer-events: none; opacity: .08;
+                }
                 .brand-rule { height: 2.5px; background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN}); }
                 .lh-contact { font-family: 'Noto Sans Bengali', 'Source Serif 4', serif; font-size: 9px; line-height: 1.45; color: #444; }
                 .copy-pill {
