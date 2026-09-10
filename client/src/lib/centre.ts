@@ -9,6 +9,8 @@ export const CENTRE = {
     address: import.meta.env.VITE_CENTRE_ADDRESS || '',
     phone: import.meta.env.VITE_CENTRE_PHONE || '',
     email: import.meta.env.VITE_CENTRE_EMAIL || '',
+    /** Printed on the letterhead beside the address, as on the centre's stationery. */
+    website: import.meta.env.VITE_CENTRE_WEBSITE || '',
     /** Staff handbook the sidebar help card links to. Blank hides the link. */
     handbookUrl: import.meta.env.VITE_HANDBOOK_URL || '',
 } as const;
