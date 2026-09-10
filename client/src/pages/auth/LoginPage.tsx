@@ -9,7 +9,7 @@ import TextField from '@/components/ui/TextField';
 import Icon from '@/components/ui/Icon';
 import type { IconName } from '@/components/ui/Icon';
 import InlineAlert from '@/components/ui/InlineAlert';
-import LogoMark from '@/components/ui/LogoMark';
+import BrandLogo from '@/components/brand/BrandLogo';
 
 const HIGHLIGHTS: [IconName, string][] = [
     ['banknote', 'Cash billing with partial payments'],
@@ -81,22 +81,22 @@ const LoginPage = () => {
                     }}
                 />
 
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <LogoMark size={40} style={{ borderRadius: 12 }} />
-                    <div>
-                        <p
-                            style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                letterSpacing: 'var(--tracking-eyebrow)',
-                                textTransform: 'uppercase',
-                                opacity: 0.75,
-                            }}
-                        >
-                            {t('login.diagnosticCentre')}
-                        </p>
-                        <p style={{ fontSize: 15, fontWeight: 700 }}>{CENTRE.name}</p>
-                    </div>
+                {/*
+                  The logo keeps its own blue and green, so it sits on a white
+                  plate: set straight onto the dark panel, the blue would all
+                  but disappear.
+                */}
+                <div
+                    style={{
+                        position: 'relative',
+                        alignSelf: 'flex-start',
+                        background: '#fff',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '14px 18px',
+                        boxShadow: '0 10px 30px -12px rgba(0,0,0,.45)',
+                    }}
+                >
+                    <BrandLogo size="md" />
                 </div>
 
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -136,6 +136,11 @@ const LoginPage = () => {
             {/* Sign-in form */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
                 <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {/* The brand panel is desktop-only, so phones get the logo here. */}
+                    <div className="only-mobile" style={{ justifyContent: 'center', marginBottom: 4 }}>
+                        <BrandLogo size="md" />
+                    </div>
+
                     <div style={{ textAlign: 'center', marginBottom: 6 }}>
                         <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-heading)' }}>Sign in</h2>
                         <p style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>Use the account provided by your administrator.</p>

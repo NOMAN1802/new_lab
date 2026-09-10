@@ -13,7 +13,8 @@ import type { UserRole } from '@/lib/token';
 import Icon from '@/components/ui/Icon';
 import type { IconName } from '@/components/ui/Icon';
 import Button from '@/components/ui/Button';
-import LogoMark from '@/components/ui/LogoMark';
+import BrandLogo from '@/components/brand/BrandLogo';
+import BrandMark from '@/components/brand/BrandMark';
 
 type NavChild = { key: TranslationKey; to: string; roles?: UserRole[] };
 
@@ -144,49 +145,23 @@ const Item = ({ name, icon, active, collapsed = false, indent = false, hasChildr
     );
 };
 
-const Brand = ({ collapsed = false }: { collapsed?: boolean }) => {
-    const t = useT();
-    return (
+/**
+ * The centre's logo heads the sidebar. Collapsed to the rail only the mark
+ * fits; open, the full wordmark, which follows the language toggle.
+ */
+const Brand = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div
         style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 'var(--space-3)',
-            padding: collapsed ? '20px 0' : '20px',
+            padding: collapsed ? '18px 0' : '18px 20px',
             justifyContent: collapsed ? 'center' : 'flex-start',
+            minWidth: 0,
         }}
     >
-        <LogoMark size={34} style={{ borderRadius: 'var(--radius-md)' }} />
-        {!collapsed && (
-            <div style={{ minWidth: 0 }}>
-                <p
-                    style={{
-                        fontSize: 'var(--text-14)',
-                        fontWeight: 'var(--fw-bold)' as CSSProperties['fontWeight'],
-                        color: 'var(--text-heading)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                    }}
-                >
-                    {CENTRE.name}
-                </p>
-                <p
-                    style={{
-                        fontSize: 'var(--text-11)',
-                        fontWeight: 'var(--fw-medium)' as CSSProperties['fontWeight'],
-                        letterSpacing: 'var(--tracking-caps)',
-                        textTransform: 'uppercase',
-                        color: 'var(--text-faint)',
-                    }}
-                >
-                    {t('shell.subtitle')}
-                </p>
-            </div>
-        )}
+        {collapsed ? <BrandMark size={40} title={CENTRE.name} /> : <BrandLogo size="sm" />}
     </div>
-    );
-};
+);
 
 const HelpCard = () => {
     const t = useT();

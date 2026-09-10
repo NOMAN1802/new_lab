@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import Icon from '@/components/ui/Icon';
 import LanguageToggle from '@/components/layout/LanguageToggle';
+import BrandLogo from '@/components/brand/BrandLogo';
 import ReportPreviewModal from '@/components/common/ReportPreviewModal';
 import { resolveType } from '@/lib/reportType';
 import type { ReportPreview } from '@/hooks/useReportPreview';
@@ -21,8 +22,6 @@ import type {
     PublicReportItem,
     PublicSummary,
 } from '@/lib/publicReportClient';
-
-const CENTRE = 'New Lab Diagnostic & Consultation Centre';
 
 /**
  * The one screen a member of the public ever sees.
@@ -134,9 +133,15 @@ const PublicReportPage = () => {
         <div style={{ minHeight: '100vh', background: 'var(--surface-page)', padding: '24px 16px' }}>
             <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                        <h1 style={{ font: 'var(--type-section-title)', color: 'var(--text-heading)' }}>{CENTRE}</h1>
-                        <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)' }}>{t('pub.title')}</p>
+                    {/* The first thing a patient sees after scanning: the
+                        centre's own logo, so they know the link is genuine. */}
+                    <div style={{ minWidth: 0 }}>
+                        <h1 style={{ margin: 0 }}>
+                            <BrandLogo size="sm" />
+                        </h1>
+                        <p style={{ fontSize: 'var(--text-12)', color: 'var(--text-muted)', marginTop: 10 }}>
+                            {t('pub.title')}
+                        </p>
                     </div>
                     <LanguageToggle />
                 </header>
