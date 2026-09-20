@@ -17,31 +17,42 @@ export type TInvoiceTotals = {
 /**
  * The single place invoice money is derived.
  *
- *   gross    = sum of test prices from the catalogue
- *   discount = gross x discountPercent      <- comes off what the PATIENT pays
- *   net      = gross - discount             <- what the patient hands over
+ *   gross    = sum of test prices from the catalogue, plus any outdoor lines
+ *   discount = catalogueGross x discountPercent   <- comes off what the PATIENT pays
+ *   net      = gross - discount                   <- what the patient hands over
+ *
+ * An outdoor line (a one-off test billed at a manually typed price, with no
+ * catalogue entry) is never discounted and never counted towards commission —
+ * it is billed exactly as entered and settled outside the referrer arrangement.
  *
  * Commission is a separate arrangement between the centre and the referring
  * doctor. It does not touch the patient's bill, and the centre sets it per
- * invoice as either a percentage of the net the patient pays, or a flat taka
- * figure.
+ * invoice as either a percentage of the discounted catalogue amount, or a flat
+ * taka figure.
  *
- *   commission = net x value   (type 'percent')
- *              = value         (type 'fixed')
+ *   commission = catalogueNet x value   (type 'percent')
+ *              = value                  (type 'fixed')
  */
 export const computeTotals = (
-  items: Pick<TInvoiceItem, 'price'>[],
+  items: Pick<TInvoiceItem, 'price' | 'isOutdoor'>[],
   discountPercent: number,
   commissionType: TCommissionType,
   commissionValue: number,
   paidAmount = 0
 ): TInvoiceTotals => {
-  const grossAmount = sum(items.map((item) => item.price));
-  const discountAmount = percentOf(grossAmount, discountPercent);
-  const netPayable = round2(grossAmount - discountAmount);
+  const catalogueItems = items.filter((item) => !item.isOutdoor);
+  const outdoorItems = items.filter((item) => item.isOutdoor);
+
+  const catalogueGross = sum(catalogueItems.map((item) => item.price));
+  const outdoorGross = sum(outdoorItems.map((item) => item.price));
+
+  const grossAmount = round2(catalogueGross + outdoorGross);
+  const discountAmount = percentOf(catalogueGross, discountPercent);
+  const catalogueNet = round2(catalogueGross - discountAmount);
+  const netPayable = round2(catalogueNet + outdoorGross);
 
   const commissionAmount = computeCommission(
-    netPayable,
+    catalogueNet,
     commissionType,
     commissionValue
   );

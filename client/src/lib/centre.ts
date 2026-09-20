@@ -6,7 +6,9 @@ export const CENTRE = {
     name:
         import.meta.env.VITE_CENTRE_NAME ||
         'New Lab Diagnostic & Consultation Centre',
-    address: import.meta.env.VITE_CENTRE_ADDRESS || '',
+    address:
+        import.meta.env.VITE_CENTRE_ADDRESS ||
+        'স্বর্গীয় ডাঃ শংকর বাবুর চেম্বার, বিএমএ ভবনের সামনে, মেইন রোড, বাগেরহাট',
     phone: import.meta.env.VITE_CENTRE_PHONE || '',
     email: import.meta.env.VITE_CENTRE_EMAIL || '',
     /** Printed on the letterhead beside the address, as on the centre's stationery. */

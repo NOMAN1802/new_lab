@@ -51,10 +51,21 @@ const buildInvoiceNumber = async (visitDate: Date): Promise<string> => {
   return `NLDC-${mm}-${dd}-${yy}-${String(seq).padStart(3, '0')}`;
 };
 
+export type TOutdoorItemInput = {
+  department: string;
+  testName: string;
+  price: number;
+};
+
 export type TCreateInvoiceInput = {
   patient: string;
   referrer?: string;
   testIds: string[];
+  /**
+   * One-off tests with no catalogue entry — department, name and price are
+   * typed in at booking. Never discounted, never counted towards commission.
+   */
+  outdoorItems?: TOutdoorItemInput[];
   visitDate?: string;
   discountPercent?: number;
   notes?: string;
@@ -108,6 +119,20 @@ const buildItems = async (
   });
 };
 
+/**
+ * Outdoor lines carry no catalogue reference — the department, name and price
+ * are exactly what the receptionist typed in, snapshotted as-is.
+ */
+const buildOutdoorItems = (items: TOutdoorItemInput[] = []): TInvoiceItem[] =>
+  items.map((item) => ({
+    testCode: 'OUTDOOR',
+    testName: item.testName,
+    categoryName: item.department,
+    price: item.price,
+    reportStatus: 'pending' as const,
+    isOutdoor: true,
+  }));
+
 const createInvoice = async (
   payload: TCreateInvoiceInput,
   userId: string
@@ -129,7 +154,14 @@ const createInvoice = async (
     }
   }
 
-  const items = await buildItems(payload.testIds);
+  const items = [
+    ...(await buildItems(payload.testIds)),
+    ...buildOutdoorItems(payload.outdoorItems),
+  ];
+
+  if (items.length === 0) {
+    throw new AppError(httpStatus.BAD_REQUEST, 'Add at least one test');
+  }
 
   // The discount comes off the patient's bill; it defaults from the referrer
   // but can be given to a walk-in too, so an explicit value always wins.

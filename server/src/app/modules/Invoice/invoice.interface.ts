@@ -24,7 +24,8 @@ export type TReportFile = {
  */
 export type TInvoiceItem = {
   _id?: Types.ObjectId;
-  test: Types.ObjectId;
+  /** Absent for an outdoor line — it was never in the catalogue. */
+  test?: Types.ObjectId;
   testCode: string;
   testName: string;
   categoryName?: string;
@@ -32,6 +33,14 @@ export type TInvoiceItem = {
   reportStatus: TReportStatus;
   reportFile?: TReportFile;
   deliveredAt?: Date;
+
+  /**
+   * A one-off test the centre performs for an outside patient without a
+   * catalogue entry — department, name and price are typed in at booking.
+   * Neither the invoice discount nor the referrer's commission ever touches
+   * this line: it is billed exactly as entered.
+   */
+  isOutdoor?: boolean;
 
   /**
    * A test called off after booking — a sample that could not be drawn, a

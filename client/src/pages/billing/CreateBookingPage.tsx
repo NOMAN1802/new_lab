@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Loader from '@/components/common/Loader';
@@ -15,6 +15,7 @@ import { apiErrorMessage, money } from '@/lib/format';
 import { useCreateInvoiceMutation } from '@/services/invoicesApi';
 import { useGetPatientsQuery } from '@/services/patientsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
+import { useGetTestCategoriesQuery } from '@/services/testCategoriesApi';
 import { useGetTestsQuery } from '@/services/testsApi';
 import type { LabTest } from '@/services/testsApi';
 
@@ -22,6 +23,23 @@ const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 1
 
 /** How much of the bill is taken at the counter, right now. */
 type PayMode = 'full' | 'part' | 'none';
+
+/**
+ * A line on the booking. Catalogue lines are picked from the Test collection;
+ * outdoor lines are typed in at the counter and carry their own department,
+ * because no catalogue entry exists to read one from.
+ */
+type BookingLine = {
+    _id: string;
+    testCode: string;
+    name: string;
+    price: number;
+    isOutdoor?: boolean;
+    department?: string;
+};
+
+/** Which half of the Tests panel is showing. */
+type TestTab = 'catalogue' | 'outdoor';
 
 const testRow: React.CSSProperties = {
     display: 'flex',
@@ -47,8 +65,15 @@ const CreateBookingPage = () => {
     const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
     const [patientSearch, setPatientSearch] = useState('');
     const [referrerId, setReferrerId] = useState('');
-    const [selected, setSelected] = useState<LabTest[]>([]);
+    const [selected, setSelected] = useState<BookingLine[]>([]);
     const [testSearch, setTestSearch] = useState('');
+    const [testTab, setTestTab] = useState<TestTab>('catalogue');
+    const [outdoorDepartment, setOutdoorDepartment] = useState('');
+    const [outdoorName, setOutdoorName] = useState('');
+    const [outdoorPrice, setOutdoorPrice] = useState('');
+    // 'all' shows every department; searching ignores this and shows matches
+    // from every department, same as before tabs existed.
+    const [activeCategory, setActiveCategory] = useState('all');
     const [notes, setNotes] = useState('');
     // Blank means "use the referrer's standing terms".
     const [discountOverride, setDiscountOverride] = useState('');
@@ -61,6 +86,7 @@ const CreateBookingPage = () => {
         limit: 30,
     });
     const { data: referrerData } = useGetReferrersQuery({ limit: 200 });
+    const { data: categoryData } = useGetTestCategoriesQuery({ limit: 200 });
     const { data: testData, isLoading: loadingTests } = useGetTestsQuery({
         search: testSearch.trim() || undefined,
         limit: 200,
@@ -70,7 +96,12 @@ const CreateBookingPage = () => {
 
     const patients = patientData?.items ?? [];
     const referrers = (referrerData?.items ?? []).filter((r) => r.isActive);
-    const tests = (testData?.items ?? []).filter((t) => t.isActive);
+    const categories = (categoryData?.items ?? []).filter((c) => c.isActive);
+    const isSearching = testSearch.trim().length > 0;
+    const categoryIdOf = (test: LabTest) => (typeof test.category === 'object' ? test.category?._id : test.category);
+    const tests = (testData?.items ?? [])
+        .filter((t) => t.isActive)
+        .filter((t) => isSearching || activeCategory === 'all' || categoryIdOf(t) === activeCategory);
 
     const patient = patients.find((p) => p._id === patientId);
     const referrer = referrers.find((r) => r._id === referrerId);
@@ -80,20 +111,40 @@ const CreateBookingPage = () => {
      * submit, so a mismatch here can never change what the patient is billed.
      */
     const totals = (() => {
-        const gross = round2(selected.reduce((sum, test) => sum + test.price, 0));
+        const catalogueGross = round2(
+            selected.filter((line) => !line.isOutdoor).reduce((sum, line) => sum + line.price, 0),
+        );
+        const outdoorGross = round2(
+            selected.filter((line) => line.isOutdoor).reduce((sum, line) => sum + line.price, 0),
+        );
+        const gross = round2(catalogueGross + outdoorGross);
 
         // The discount comes off the patient's bill. It defaults from the
         // referrer, but can be given to a walk-in too.
         const discountPercent = discountOverride !== '' ? Number(discountOverride) : (referrer?.defaultDiscountPercent ?? 0);
 
-        const discount = round2((gross * discountPercent) / 100);
-        const net = round2(gross - discount);
+        // An outdoor test is billed exactly as it was typed in, so the
+        // discount only ever bites on the catalogue part of the bill.
+        const discount = round2((catalogueGross * discountPercent) / 100);
+        const net = round2(catalogueGross - discount + outdoorGross);
 
         // Commission is deliberately absent: booking records who referred the
         // patient, and an Admin settles what they are owed from the Doctor's
         // Commission screen.
-        return { gross, discountPercent, discount, net };
+        return { gross, catalogueGross, outdoorGross, discountPercent, discount, net };
     })();
+
+    /**
+     * The selected lines, catalogue first and outdoor after, so the preview
+     * groups them the way the printed invoice does. Each entry keeps the index
+     * it holds in `selected` — the remove button works off that, not off where
+     * the line happens to be shown.
+     */
+    const hasOutdoor = selected.some((line) => line.isOutdoor);
+    const catalogueCount = selected.filter((line) => !line.isOutdoor).length;
+    const orderedSelected = selected
+        .map((line, index) => ({ line, index }))
+        .sort((a, b) => Number(Boolean(a.line.isOutdoor)) - Number(Boolean(b.line.isOutdoor)));
 
     /**
      * The part-payment, validated against the previewed net. The server clamps
@@ -110,7 +161,42 @@ const CreateBookingPage = () => {
                 ? `Cannot take more than the ${money(totals.net)} payable`
                 : undefined;
 
-    const addTest = (test: LabTest) => setSelected((current) => [...current, test]);
+    const addTest = (test: LabTest) =>
+        setSelected((current) => [
+            ...current,
+            { _id: test._id, testCode: test.testCode, name: test.name, price: test.price },
+        ]);
+
+    const outdoorPriceValue = round2(Number(outdoorPrice));
+    const canAddOutdoor =
+        outdoorDepartment.trim() !== '' &&
+        outdoorName.trim() !== '' &&
+        outdoorPrice !== '' &&
+        Number.isFinite(outdoorPriceValue) &&
+        outdoorPriceValue >= 0;
+
+    const addOutdoorTest = () => {
+        if (!canAddOutdoor) {
+            toast.error('Enter the department, test name and price');
+            return;
+        }
+
+        setSelected((current) => [
+            ...current,
+            {
+                _id: 'outdoor',
+                testCode: 'OUTDOOR',
+                name: outdoorName.trim(),
+                price: outdoorPriceValue,
+                isOutdoor: true,
+                department: outdoorDepartment.trim(),
+            },
+        ]);
+
+        // The department stays put: a run of outdoor tests is usually from one.
+        setOutdoorName('');
+        setOutdoorPrice('');
+    };
     const removeTest = (index: number) => setSelected((current) => current.filter((_, i) => i !== index));
 
     const handleSubmit = async (event: React.FormEvent) => {
@@ -137,7 +223,14 @@ const CreateBookingPage = () => {
             const invoice = await createInvoice({
                 patient: patientId,
                 referrer: referrerId || undefined,
-                testIds: selected.map((test) => test._id),
+                testIds: selected.filter((line) => !line.isOutdoor).map((line) => line._id),
+                outdoorItems: selected
+                    .filter((line) => line.isOutdoor)
+                    .map((line) => ({
+                        department: line.department ?? '',
+                        testName: line.name,
+                        price: line.price,
+                    })),
                 notes: notes.trim() || undefined,
                 collectFullPayment: payMode === 'full',
                 advanceAmount: payMode === 'part' ? advanceTaken : undefined,
@@ -267,6 +360,49 @@ const CreateBookingPage = () => {
 
                     <Panel title={t('booking.tests')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <SegmentedControl
+                                options={[
+                                    { label: t('booking.catalogueTab'), value: 'catalogue' },
+                                    { label: t('booking.outdoorTab'), value: 'outdoor' },
+                                ]}
+                                value={testTab}
+                                onChange={(value) => setTestTab(value as TestTab)}
+                            />
+
+                            {testTab === 'outdoor' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <TextField
+                                        label={t('booking.outdoorDepartment')}
+                                        id="outdoor-department"
+                                        value={outdoorDepartment}
+                                        onChange={(e) => setOutdoorDepartment(e.target.value)}
+                                        placeholder={t('booking.outdoorDepartmentPlaceholder')}
+                                    />
+                                    <TextField
+                                        label={t('booking.outdoorTestName')}
+                                        id="outdoor-name"
+                                        value={outdoorName}
+                                        onChange={(e) => setOutdoorName(e.target.value)}
+                                    />
+                                    <TextField
+                                        label={t('booking.outdoorPrice')}
+                                        id="outdoor-price"
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={outdoorPrice}
+                                        onChange={(e) => setOutdoorPrice(e.target.value)}
+                                        placeholder="0.00"
+                                    />
+
+                                    <Button type="button" onClick={addOutdoorTest} disabled={!canAddOutdoor}>
+                                        {t('booking.outdoorAdd')}
+                                    </Button>
+
+                                    <InlineAlert tone="info">{t('booking.outdoorNote')}</InlineAlert>
+                                </div>
+                            ) : (
+                                <>
                             <TextField
                                 icon="search"
                                 type="search"
@@ -274,6 +410,42 @@ const CreateBookingPage = () => {
                                 onChange={(e) => setTestSearch(e.target.value)}
                                 placeholder={t('booking.searchTests')}
                             />
+
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: 6,
+                                    opacity: isSearching ? 0.4 : 1,
+                                    pointerEvents: isSearching ? 'none' : 'auto',
+                                }}
+                            >
+                                {[{ _id: 'all', name: 'All' }, ...categories].map((cat) => (
+                                    <button
+                                        key={cat._id}
+                                        type="button"
+                                        onClick={() => setActiveCategory(cat._id)}
+                                        style={{
+                                            border: '1px solid var(--border-subtle)',
+                                            borderRadius: 999,
+                                            padding: '5px 12px',
+                                            fontFamily: 'var(--font-sans)',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            background: activeCategory === cat._id ? 'var(--brand)' : 'transparent',
+                                            color: activeCategory === cat._id ? '#fff' : 'var(--text-muted)',
+                                        }}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
+                            </div>
+                            {isSearching && (
+                                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)' }}>
+                                    Showing matches across every department. Clear the search to browse by department.
+                                </p>
+                            )}
 
                             {loadingTests ? (
                                 <Loader message={t('booking.loadingCatalogue')} />
@@ -327,6 +499,8 @@ const CreateBookingPage = () => {
                                     )}
                                 </ul>
                             )}
+                                </>
+                            )}
                         </div>
                     </Panel>
                 </div>
@@ -348,33 +522,54 @@ const CreateBookingPage = () => {
                             </p>
                         ) : (
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {selected.map((test, index) => (
-                                    <li
-                                        key={`${test._id}-${index}`}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: 12,
-                                            background: 'var(--surface-sunken)',
-                                            borderRadius: 'var(--radius-md)',
-                                            padding: '10px 14px',
-                                            fontSize: 13,
-                                        }}
-                                    >
-                                        <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                                            <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeTest(index)}
-                                                aria-label={`Remove ${test.name}`}
-                                                style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--danger)', display: 'flex' }}
+                                {orderedSelected.map(({ line: test, index }, position) => (
+                                    <Fragment key={`${test._id}-${index}`}>
+                                        {/*
+                                          Outdoor lines sit under their own
+                                          heading, so it is clear which part of
+                                          the bill the discount below reduced.
+                                        */}
+                                        {test.isOutdoor && position === catalogueCount && (
+                                            <li
+                                                style={{
+                                                    marginTop: 4,
+                                                    fontFamily: 'var(--font-mono)',
+                                                    fontSize: 10,
+                                                    fontWeight: 700,
+                                                    letterSpacing: '.06em',
+                                                    textTransform: 'uppercase',
+                                                    color: 'var(--text-muted)',
+                                                }}
                                             >
-                                                <Icon name="trash-2" size={15} />
-                                            </button>
-                                        </span>
-                                    </li>
+                                                {t('booking.outdoorHeading')}
+                                            </li>
+                                        )}
+                                        <li
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: 12,
+                                                background: 'var(--surface-sunken)',
+                                                borderRadius: 'var(--radius-md)',
+                                                padding: '10px 14px',
+                                                fontSize: 13,
+                                            }}
+                                        >
+                                            <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                                                <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeTest(index)}
+                                                    aria-label={`Remove ${test.name}`}
+                                                    style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--danger)', display: 'flex' }}
+                                                >
+                                                    <Icon name="trash-2" size={15} />
+                                                </button>
+                                            </span>
+                                        </li>
+                                    </Fragment>
                                 ))}
                             </ul>
                         )}
@@ -390,14 +585,33 @@ const CreateBookingPage = () => {
                                 fontSize: 13,
                             }}
                         >
+                            {/*
+                              With an outdoor line on the booking the two parts
+                              are totalled separately: the discount reads
+                              directly under the lab tests it came off, and the
+                              outdoor amount is added after it, untouched.
+                              Otherwise this is the plain gross line it always was.
+                            */}
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <dt style={{ color: 'var(--text-muted)' }}>{t('booking.gross')}</dt>
-                                <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.gross)}</dd>
+                                <dt style={{ color: 'var(--text-muted)' }}>
+                                    {hasOutdoor ? t('booking.labTestsLine') : t('booking.gross')}
+                                </dt>
+                                <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {money(hasOutdoor ? totals.catalogueGross : totals.gross)}
+                                </dd>
                             </div>
                             {totals.discount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning-strong)' }}>
                                     <dt>{t('booking.discountLine')} ({totals.discountPercent}%)</dt>
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>−{money(totals.discount)}</dd>
+                                </div>
+                            )}
+                            {hasOutdoor && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <dt style={{ color: 'var(--text-muted)' }}>{t('booking.outdoorLine')}</dt>
+                                    <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>
+                                        {money(totals.outdoorGross)}
+                                    </dd>
                                 </div>
                             )}
                             <div

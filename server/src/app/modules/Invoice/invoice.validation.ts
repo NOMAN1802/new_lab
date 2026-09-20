@@ -46,26 +46,42 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
  * accrual comes from the referrer's standing terms, and only an Admin changes
  * those or settles them from the Doctor's Commission screen.
  */
+const outdoorItem = z.object({
+  department: z.string().trim().min(1, 'Enter the department'),
+  testName: z.string().trim().min(1, 'Enter the test name'),
+  price: z
+    .number({ invalid_type_error: 'Must be a number' })
+    .min(0, 'Cannot be negative'),
+});
+
 const createInvoiceValidationSchema = z.object({
-  body: z.object({
-    patient: objectId,
-    referrer: objectId.optional(),
-    testIds: z
-      .array(objectId, { required_error: 'Select at least one test' })
-      .min(1, 'Select at least one test'),
-    visitDate: z.string().datetime().optional(),
-    discountPercent: percent.optional(),
-    notes: z.string().trim().optional(),
-    collectFullPayment: z.boolean().optional(),
-    /**
-     * A part-payment taken at the counter. The service clamps it to the net it
-     * computes, so an over-figure can never receipt more than is owed.
-     */
-    advanceAmount: z
-      .number({ invalid_type_error: 'Must be a number' })
-      .min(0, 'Cannot be negative')
-      .optional(),
-  }),
+  body: z
+    .object({
+      patient: objectId,
+      referrer: objectId.optional(),
+      testIds: z.array(objectId).default([]),
+      /**
+       * One-off tests with no catalogue entry, typed in at booking. Never
+       * discounted, never counted towards commission.
+       */
+      outdoorItems: z.array(outdoorItem).default([]),
+      visitDate: z.string().datetime().optional(),
+      discountPercent: percent.optional(),
+      notes: z.string().trim().optional(),
+      collectFullPayment: z.boolean().optional(),
+      /**
+       * A part-payment taken at the counter. The service clamps it to the net
+       * it computes, so an over-figure can never receipt more than is owed.
+       */
+      advanceAmount: z
+        .number({ invalid_type_error: 'Must be a number' })
+        .min(0, 'Cannot be negative')
+        .optional(),
+    })
+    .refine((body) => body.testIds.length + body.outdoorItems.length > 0, {
+      message: 'Select at least one test',
+      path: ['testIds'],
+    }),
 });
 
 const updateInvoiceItemsValidationSchema = withCommissionCheck(

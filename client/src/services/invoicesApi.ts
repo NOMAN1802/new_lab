@@ -19,11 +19,18 @@ export type ReportFile = {
 
 export type InvoiceItem = {
     _id: string;
-    test: string;
+    /** Absent on an outdoor line — it was never in the catalogue. */
+    test?: string;
     testCode: string;
     testName: string;
     categoryName?: string;
     price: number;
+
+    /**
+     * Typed in at the counter rather than picked from the catalogue. Neither
+     * the discount nor the referrer's commission touches an outdoor line.
+     */
+    isOutdoor?: boolean;
     reportStatus: ReportStatus;
     reportFile?: ReportFile;
     deliveredAt?: string;
@@ -95,6 +102,11 @@ export type CreateInvoiceInput = {
     patient: string;
     referrer?: string;
     testIds: string[];
+    /**
+     * One-off tests with no catalogue entry, typed in at booking. Billed
+     * exactly as entered: never discounted, never counted towards commission.
+     */
+    outdoorItems?: { department: string; testName: string; price: number }[];
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
     discountPercent?: number;
