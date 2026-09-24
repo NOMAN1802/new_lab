@@ -51,10 +51,18 @@ const buildInvoiceNumber = async (visitDate: Date): Promise<string> => {
   return `NLDC-${mm}-${dd}-${yy}-${String(seq).padStart(3, '0')}`;
 };
 
+export type TOutdoorTestInput = {
+  department?: string;
+  name: string;
+  price: number;
+};
+
 export type TCreateInvoiceInput = {
   patient: string;
   referrer?: string;
   testIds: string[];
+  /** Ad-hoc tests outside the catalogue — billed exactly as entered. */
+  outdoorTests?: TOutdoorTestInput[];
   visitDate?: string;
   discountPercent?: number;
   notes?: string;
@@ -104,9 +112,28 @@ const buildItems = async (
       categoryName: test.categoryName,
       price: test.price,
       reportStatus: 'pending' as const,
+      isOutdoor: false,
     };
   });
 };
+
+/**
+ * Outdoor tests are ad-hoc — done outside the catalogue, so there is no Test
+ * document to read a price from. Unlike buildItems, the price the
+ * receptionist typed at the counter IS what gets billed; that trust is the
+ * point of the feature; catalogue tests never work this way.
+ */
+const buildOutdoorItems = (
+  outdoorTests: TOutdoorTestInput[] | undefined
+): TInvoiceItem[] =>
+  (outdoorTests ?? []).map((entry) => ({
+    testCode: 'OUTDOOR',
+    testName: entry.name,
+    categoryName: entry.department,
+    price: entry.price,
+    reportStatus: 'pending' as const,
+    isOutdoor: true,
+  }));
 
 const createInvoice = async (
   payload: TCreateInvoiceInput,
@@ -129,7 +156,10 @@ const createInvoice = async (
     }
   }
 
-  const items = await buildItems(payload.testIds);
+  const items = [
+    ...(await buildItems(payload.testIds ?? [])),
+    ...buildOutdoorItems(payload.outdoorTests),
+  ];
 
   // The discount comes off the patient's bill; it defaults from the referrer
   // but can be given to a walk-in too, so an explicit value always wins.
@@ -329,7 +359,15 @@ const updateInvoiceItems = async (
     );
   }
 
-  const items = await buildItems(testIds);
+  // This endpoint only ever replaces the catalogue side of the bill — outdoor
+  // tests are entered once at booking and have no catalogue id to resubmit,
+  // so they are carried over untouched rather than dropped.
+  const existingOutdoorItems = invoice.items
+    .filter((item) => item.isOutdoor)
+    .map((item) =>
+      (item as unknown as { toObject: () => TInvoiceItem }).toObject()
+    );
+  const items = [...(await buildItems(testIds)), ...existingOutdoorItems];
   const nextDiscount = discountPercent ?? invoice.discountPercent;
   const nextCommissionType = commissionType ?? invoice.commissionType;
   const nextCommissionValue = commissionValue ?? invoice.commissionValue;

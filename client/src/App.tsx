@@ -110,10 +110,12 @@ function App() {
 
                         <Route path="profile" element={<ProfilePage />} />
 
+                        {/* Referrers — both roles can add; the page itself disables commission payout for receptionists. */}
+                        <Route path="referrers" element={<ReferrersPage />} />
+
                         {/* Admin-only. The API enforces this independently. */}
                         <Route element={<RoleRoute allow={['admin']} />}>
                             <Route path="departments" element={<TestCategoriesPage />} />
-                            <Route path="referrers" element={<ReferrersPage />} />
                             <Route path="commission" element={<CommissionPayoutsPage />} />
                             <Route path="reports/financial" element={<FinancialReportPage />} />
                             <Route path="reports/commission" element={<CommissionReportPage />} />

@@ -37,6 +37,22 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
   });
 
 /**
+ * An ad-hoc test outside the catalogue. There is no test id to validate
+ * against — the receptionist's price is what gets billed — so only shape and
+ * sign are checked here.
+ */
+const outdoorTestInput = z.object({
+  department: z.string().trim().optional(),
+  name: z
+    .string({ required_error: 'Test name is required' })
+    .trim()
+    .min(1, 'Test name is required'),
+  price: z
+    .number({ invalid_type_error: 'Must be a number' })
+    .min(0, 'Cannot be negative'),
+});
+
+/**
  * Note what is absent: grossAmount, discountAmount, netPayable, commissionAmount,
  * paidAmount, dueAmount and paymentStatus are all server-derived. Zod strips
  * unknown keys, so a client sending them has no effect.
@@ -46,27 +62,37 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
  * accrual comes from the referrer's standing terms, and only an Admin changes
  * those or settles them from the Doctor's Commission screen.
  */
-const createInvoiceValidationSchema = z.object({
-  body: z.object({
-    patient: objectId,
-    referrer: objectId.optional(),
-    testIds: z
-      .array(objectId, { required_error: 'Select at least one test' })
-      .min(1, 'Select at least one test'),
-    visitDate: z.string().datetime().optional(),
-    discountPercent: percent.optional(),
-    notes: z.string().trim().optional(),
-    collectFullPayment: z.boolean().optional(),
-    /**
-     * A part-payment taken at the counter. The service clamps it to the net it
-     * computes, so an over-figure can never receipt more than is owed.
-     */
-    advanceAmount: z
-      .number({ invalid_type_error: 'Must be a number' })
-      .min(0, 'Cannot be negative')
-      .optional(),
-  }),
-});
+const createInvoiceValidationSchema = z
+  .object({
+    body: z.object({
+      patient: objectId,
+      referrer: objectId.optional(),
+      testIds: z.array(objectId).default([]),
+      outdoorTests: z.array(outdoorTestInput).default([]),
+      visitDate: z.string().datetime().optional(),
+      discountPercent: percent.optional(),
+      notes: z.string().trim().optional(),
+      collectFullPayment: z.boolean().optional(),
+      /**
+       * A part-payment taken at the counter. The service clamps it to the net it
+       * computes, so an over-figure can never receipt more than is owed.
+       */
+      advanceAmount: z
+        .number({ invalid_type_error: 'Must be a number' })
+        .min(0, 'Cannot be negative')
+        .optional(),
+    }),
+  })
+  .superRefine((value, ctx) => {
+    const { testIds, outdoorTests } = value.body;
+    if (testIds.length + outdoorTests.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['body', 'testIds'],
+        message: 'Select at least one test',
+      });
+    }
+  });
 
 const updateInvoiceItemsValidationSchema = withCommissionCheck(
   z.object({

@@ -227,10 +227,10 @@ const rejects = async (label, fn, matcher) => {
         const asAdmin = serializeInvoice(current, 'admin');
         const asReception = serializeInvoice(current, 'receptionist');
 
-        // The commission line prints on the invoice, and a receptionist is the
-        // one printing it, so per-invoice figures are returned to both roles.
+        // Commission is arranged and settled by an Admin alone, so every
+        // commission figure is stripped from a receptionist's copy.
         check('admin sees commission', typeof asAdmin.commissionAmount, 'number');
-        check('receptionist: commission retained for the invoice', asReception.commissionAmount, 270);
+        check('receptionist: commission withheld', asReception.commissionAmount, undefined);
         check('receptionist: gross retained', asReception.grossAmount, 2000);
         check('receptionist: discount retained', asReception.discountAmount, 200);
         check('receptionist: net retained', asReception.netPayable, 1800);
@@ -260,6 +260,12 @@ const rejects = async (label, fn, matcher) => {
         );
 
         console.log('\n--- 8: commission payout settles accrued commission ---');
+        // Step 4 voided the settling payment, leaving this invoice partial
+        // again. Commission is only payable once the patient has paid in
+        // full, so pay it off before checking what is pending.
+        await PaymentServices.createPayment(
+            { invoice: String(invoice._id), amount: 800 }, String(reception._id)
+        );
         const pendingBefore = await CommissionPayoutServices.getPendingCommission(
             String(referrer._id)
         );
@@ -298,8 +304,9 @@ const rejects = async (label, fn, matcher) => {
         ]))[0].total;
 
         check('cash collected matches the payment ledger', financial.cashCollected, ledgerTotal);
-        // 1000 on the first invoice (800 of it voided) + 700 taken at the counter
-        check('cash collected excludes the voided receipt', financial.cashCollected, 1700);
+        // 1000 + 800 (the first invoice, its voided 800 repaid in step 8 to
+        // settle it for payout) + 700 taken at the counter
+        check('cash collected excludes the voided receipt', financial.cashCollected, 2500);
         // invoice, tampered, same-day, counter-settled, fully-discounted, walk-in
         check('invoices counted', financial.invoiceCount, 6);
         check('gross billed', financial.grossBilled, 2000 + 800 + 800 + 700 + 500 + 500);

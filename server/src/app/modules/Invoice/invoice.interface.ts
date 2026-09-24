@@ -24,7 +24,8 @@ export type TReportFile = {
  */
 export type TInvoiceItem = {
   _id?: Types.ObjectId;
-  test: Types.ObjectId;
+  /** Absent for an outdoor test — there is no catalogue Test behind it. */
+  test?: Types.ObjectId;
   testCode: string;
   testName: string;
   categoryName?: string;
@@ -32,6 +33,14 @@ export type TInvoiceItem = {
   reportStatus: TReportStatus;
   reportFile?: TReportFile;
   deliveredAt?: Date;
+
+  /**
+   * An ad-hoc test outsourced or done outside the regular catalogue — a
+   * receptionist types the department, name and price at booking time. It is
+   * billed exactly as entered: no discount and no referrer commission apply,
+   * so it is tracked separately in every total.
+   */
+  isOutdoor?: boolean;
 
   /**
    * A test called off after booking — a sample that could not be drawn, a

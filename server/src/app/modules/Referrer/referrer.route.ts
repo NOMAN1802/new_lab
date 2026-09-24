@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post(
   '/',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(ReferrerValidations.createReferrerValidationSchema),
   ReferrerControllers.createReferrer
 );
@@ -30,11 +30,15 @@ router.get(
 
 router.patch(
   '/:id',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(ReferrerValidations.updateReferrerValidationSchema),
   ReferrerControllers.updateReferrer
 );
 
-router.delete('/:id', auth(USER_ROLE.admin), ReferrerControllers.deleteReferrer);
+router.delete(
+  '/:id',
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
+  ReferrerControllers.deleteReferrer
+);
 
 export const referrerRoutes = router;

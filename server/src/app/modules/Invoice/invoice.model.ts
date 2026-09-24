@@ -18,7 +18,7 @@ const ReportFileSchema = new Schema<TReportFile>(
 );
 
 const InvoiceItemSchema = new Schema<TInvoiceItem>({
-  test: { type: Schema.Types.ObjectId, ref: 'Test', required: true },
+  test: { type: Schema.Types.ObjectId, ref: 'Test', required: false },
   testCode: { type: String, required: true },
   testName: { type: String, required: true },
   categoryName: { type: String },
@@ -30,6 +30,7 @@ const InvoiceItemSchema = new Schema<TInvoiceItem>({
   },
   reportFile: { type: ReportFileSchema, required: false },
   deliveredAt: { type: Date },
+  isOutdoor: { type: Boolean, default: false },
 
   isCancelled: { type: Boolean, default: false },
   cancelledAt: { type: Date },

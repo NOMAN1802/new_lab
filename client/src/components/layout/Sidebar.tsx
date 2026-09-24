@@ -49,7 +49,7 @@ const NAVIGATION: NavItem[] = [
             { key: 'nav.departments', to: '/departments', roles: ['admin'] },
         ],
     },
-    { key: 'nav.referrers', to: '/referrers', icon: 'user-round-search', roles: ['admin'] },
+    { key: 'nav.referrers', to: '/referrers', icon: 'user-round-search' },
     { key: 'nav.commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
     {
         key: 'nav.reports',

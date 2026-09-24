@@ -1,7 +1,6 @@
 import httpStatus from 'http-status';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
-import { TUserRole } from '../User/user.interface';
 import { serializeReferrer, serializeReferrers } from './referrer.serializer';
 import { ReferrerServices } from './referrer.service';
 
@@ -22,7 +21,7 @@ const getReferrers = catchAsync(async (req, res) => {
     success: true,
     message: 'Referrers retrieved successfully',
     meta,
-    data: serializeReferrers(result, req.user.role as TUserRole),
+    data: serializeReferrers(result),
   });
 });
 
@@ -32,7 +31,7 @@ const getReferrer = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Referrer retrieved successfully',
-    data: serializeReferrer(result, req.user.role as TUserRole),
+    data: serializeReferrer(result),
   });
 });
 
