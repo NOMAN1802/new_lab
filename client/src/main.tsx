@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { Toaster } from 'sonner';
 import './index.css';
 import App from './App';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { LanguageProvider } from '@/i18n/LanguageProvider';
 import { store } from './app/store';
 
@@ -24,13 +25,15 @@ console.error = (...args: unknown[]) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Provider store={store}>
-      <LanguageProvider>
-        <BrowserRouter>
-          <App />
-          <Toaster position="top-right" richColors />
-        </BrowserRouter>
-      </LanguageProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <LanguageProvider>
+          <BrowserRouter>
+            <App />
+            <Toaster position="top-right" richColors />
+          </BrowserRouter>
+        </LanguageProvider>
+      </Provider>
+    </ErrorBoundary>
   </StrictMode>
 );

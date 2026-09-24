@@ -506,6 +506,17 @@ const InvoiceDetailPage = () => {
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>−{money(invoice.discountAmount)}</dd>
                                 </div>
                             )}
+                            {(() => {
+                                const outdoorGross = invoice.items
+                                    .filter((item) => item.isOutdoor && !item.isCancelled)
+                                    .reduce((total, item) => total + item.price, 0);
+                                return outdoorGross > 0 ? (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <dt style={{ color: 'var(--text-muted)' }}>Outdoor tests</dt>
+                                        <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(outdoorGross)}</dd>
+                                    </div>
+                                ) : null;
+                            })()}
                             <div
                                 style={{
                                     display: 'flex',

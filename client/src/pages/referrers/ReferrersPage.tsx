@@ -8,7 +8,9 @@ import Button from '@/components/ui/Button';
 import Checkbox from '@/components/ui/Checkbox';
 import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
+import Modal from '@/components/ui/Modal';
 import Panel from '@/components/ui/Panel';
+import { useRole } from '@/hooks/useRole';
 import { useT } from '@/i18n/useLanguage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import TextField from '@/components/ui/TextField';
@@ -50,6 +52,7 @@ const rowAction: React.CSSProperties = {
 
 const ReferrersPage = () => {
     const t = useT();
+    const { isAdmin } = useRole();
     const [search, setSearch] = useState('');
     const [isFormOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Referrer | null>(null);
@@ -60,7 +63,8 @@ const ReferrersPage = () => {
     });
     const [createReferrer, { isLoading: isCreating }] = useCreateReferrerMutation();
     const [updateReferrer, { isLoading: isUpdating }] = useUpdateReferrerMutation();
-    const [deleteReferrer] = useDeleteReferrerMutation();
+    const [deleteReferrer, { isLoading: isDeleting }] = useDeleteReferrerMutation();
+    const [deactivateTarget, setDeactivateTarget] = useState<Referrer | null>(null);
 
     const startCreate = () => {
         // Clearing `editing` matters: without it, opening the form after an
@@ -125,13 +129,16 @@ const ReferrersPage = () => {
         }
     };
 
-    const handleDelete = async (referrer: Referrer) => {
-        if (!window.confirm(`Deactivate ${referrer.name}? Past invoices and any unpaid commission stay on record.`)) {
-            return;
-        }
+    const handleDelete = (referrer: Referrer) => {
+        setDeactivateTarget(referrer);
+    };
+
+    const confirmDeactivate = async () => {
+        if (!deactivateTarget) return;
         try {
-            await deleteReferrer(referrer._id).unwrap();
+            await deleteReferrer(deactivateTarget._id).unwrap();
             toast.success('Referrer deactivated');
+            setDeactivateTarget(null);
         } catch (error) {
             toast.error(apiErrorMessage(error, 'Could not deactivate referrer'));
         }
@@ -346,13 +353,30 @@ const ReferrersPage = () => {
                                     align: 'right',
                                     render: (referrer) => (
                                         <span style={{ display: 'inline-flex', gap: 4 }}>
-                                            <Link
-                                                to={`/commission?referrer=${referrer._id}`}
-                                                aria-label={`Commission for ${referrer.name}`}
-                                                style={{ ...rowAction, color: 'var(--success-strong)' }}
-                                            >
-                                                <Icon name="banknote" size={16} />
-                                            </Link>
+                                            {isAdmin ? (
+                                                <Link
+                                                    to={`/commission?referrer=${referrer._id}`}
+                                                    aria-label={`Commission for ${referrer.name}`}
+                                                    style={{ ...rowAction, color: 'var(--success-strong)' }}
+                                                >
+                                                    <Icon name="banknote" size={16} />
+                                                </Link>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    aria-label={`Commission for ${referrer.name} (admin only)`}
+                                                    title="Only admin can pay commission"
+                                                    style={{
+                                                        ...rowAction,
+                                                        color: 'var(--success-strong)',
+                                                        opacity: 0.4,
+                                                        cursor: 'not-allowed',
+                                                    }}
+                                                >
+                                                    <Icon name="banknote" size={16} />
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 aria-label={`Edit ${referrer.name}`}
@@ -382,6 +406,27 @@ const ReferrersPage = () => {
                     </p>
                 </>
             )}
+
+            <Modal
+                open={!!deactivateTarget}
+                onClose={() => setDeactivateTarget(null)}
+                title={`Deactivate ${deactivateTarget?.name ?? ''}?`}
+                width={420}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setDeactivateTarget(null)}>
+                            {t('ctrl.cancel')}
+                        </Button>
+                        <Button variant="danger" loading={isDeleting} onClick={confirmDeactivate}>
+                            {isDeleting ? 'Deactivating...' : 'Deactivate'}
+                        </Button>
+                    </>
+                }
+            >
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    Past invoices and any unpaid commission stay on record.
+                </p>
+            </Modal>
         </>
     );
 };

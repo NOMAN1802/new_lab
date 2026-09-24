@@ -17,31 +17,41 @@ export type TInvoiceTotals = {
 /**
  * The single place invoice money is derived.
  *
- *   gross    = sum of test prices from the catalogue
- *   discount = gross x discountPercent      <- comes off what the PATIENT pays
- *   net      = gross - discount             <- what the patient hands over
+ *   labGross     = sum of catalogue test prices
+ *   discount     = labGross x discountPercent   <- comes off what the PATIENT pays
+ *   outdoorGross = sum of outdoor test prices    <- billed exactly as entered
+ *   gross        = labGross + outdoorGross
+ *   net          = (labGross - discount) + outdoorGross
+ *
+ * An outdoor test — an ad-hoc test outside the catalogue, entered at booking
+ * time — carries no discount and, because commission is computed on the lab
+ * net below rather than the overall net, no referrer commission either.
  *
  * Commission is a separate arrangement between the centre and the referring
  * doctor. It does not touch the patient's bill, and the centre sets it per
- * invoice as either a percentage of the net the patient pays, or a flat taka
- * figure.
+ * invoice as either a percentage of the lab net the patient pays for
+ * catalogue tests, or a flat taka figure.
  *
- *   commission = net x value   (type 'percent')
- *              = value         (type 'fixed')
+ *   commission = labNet x value   (type 'percent')
+ *              = value            (type 'fixed')
  */
 export const computeTotals = (
-  items: Pick<TInvoiceItem, 'price'>[],
+  items: Pick<TInvoiceItem, 'price' | 'isOutdoor'>[],
   discountPercent: number,
   commissionType: TCommissionType,
   commissionValue: number,
   paidAmount = 0
 ): TInvoiceTotals => {
-  const grossAmount = sum(items.map((item) => item.price));
-  const discountAmount = percentOf(grossAmount, discountPercent);
-  const netPayable = round2(grossAmount - discountAmount);
+  const labGross = sum(items.filter((item) => !item.isOutdoor).map((item) => item.price));
+  const outdoorGross = sum(items.filter((item) => item.isOutdoor).map((item) => item.price));
+
+  const grossAmount = round2(labGross + outdoorGross);
+  const discountAmount = percentOf(labGross, discountPercent);
+  const labNet = round2(labGross - discountAmount);
+  const netPayable = round2(labNet + outdoorGross);
 
   const commissionAmount = computeCommission(
-    netPayable,
+    labNet,
     commissionType,
     commissionValue
   );

@@ -1,4 +1,5 @@
 import {
+    Activity,
     Banknote,
     Bell,
     Building2,
@@ -62,6 +63,7 @@ import type { CSSProperties } from 'react';
  * carries the glyphs the product actually draws.
  */
 const REGISTRY = {
+    activity: Activity,
     banknote: Banknote,
     bell: Bell,
     'building-2': Building2,

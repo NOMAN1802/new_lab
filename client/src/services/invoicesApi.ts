@@ -19,7 +19,7 @@ export type ReportFile = {
 
 export type InvoiceItem = {
     _id: string;
-    test: string;
+    test?: string;
     testCode: string;
     testName: string;
     categoryName?: string;
@@ -27,6 +27,12 @@ export type InvoiceItem = {
     reportStatus: ReportStatus;
     reportFile?: ReportFile;
     deliveredAt?: string;
+
+    /**
+     * An ad-hoc test outside the catalogue, priced at the counter. Billed
+     * exactly as entered — no discount, no referrer commission.
+     */
+    isOutdoor?: boolean;
 
     /**
      * A test called off after booking. The line stays on the invoice, struck
@@ -91,10 +97,18 @@ export type Invoice = {
     createdAt: string;
 };
 
+export type OutdoorTestInput = {
+    department?: string;
+    name: string;
+    price: number;
+};
+
 export type CreateInvoiceInput = {
     patient: string;
     referrer?: string;
     testIds: string[];
+    /** Ad-hoc tests outside the catalogue — billed exactly as entered. */
+    outdoorTests?: OutdoorTestInput[];
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
     discountPercent?: number;
