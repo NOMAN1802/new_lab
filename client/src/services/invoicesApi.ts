@@ -28,11 +28,15 @@ export type InvoiceItem = {
     reportFile?: ReportFile;
     deliveredAt?: string;
 
-    /**
-     * An ad-hoc test outside the catalogue, priced at the counter. Billed
-     * exactly as entered — no discount, no referrer commission.
-     */
+    /** Legacy ad-hoc test, no longer bookable; older invoices still carry it. */
     isOutdoor?: boolean;
+
+    /**
+     * Booked through a partner centre. `price` is still what the patient pays;
+     * corporatePrice is the centre's cost, shown only on the centre's copy.
+     */
+    isCorporate?: boolean;
+    corporatePrice?: number;
 
     /**
      * A test called off after booking. The line stays on the invoice, struck
@@ -97,18 +101,12 @@ export type Invoice = {
     createdAt: string;
 };
 
-export type OutdoorTestInput = {
-    department?: string;
-    name: string;
-    price: number;
-};
-
 export type CreateInvoiceInput = {
     patient: string;
     referrer?: string;
     testIds: string[];
-    /** Ad-hoc tests outside the catalogue — billed exactly as entered. */
-    outdoorTests?: OutdoorTestInput[];
+    /** The subset of testIds booked at the partner centre's corporate rate. */
+    corporateTestIds?: string[];
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
     discountPercent?: number;

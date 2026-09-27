@@ -35,12 +35,19 @@ export type TInvoiceItem = {
   deliveredAt?: Date;
 
   /**
-   * An ad-hoc test outsourced or done outside the regular catalogue — a
-   * receptionist types the department, name and price at booking time. It is
-   * billed exactly as entered: no discount and no referrer commission apply,
-   * so it is tracked separately in every total.
+   * Legacy: an ad-hoc test typed in at booking, billed exactly as entered with
+   * no discount or commission. No longer bookable, but older invoices carry
+   * them, so totals and prints still honour the flag.
    */
   isOutdoor?: boolean;
+
+  /**
+   * Booked through a partner centre at its corporate rate. The patient is
+   * still billed `price` (the regular rate); corporatePrice is what the centre
+   * pays, snapshotted from the catalogue for the centre's copy.
+   */
+  isCorporate?: boolean;
+  corporatePrice?: number;
 
   /**
    * A test called off after booking — a sample that could not be drawn, a

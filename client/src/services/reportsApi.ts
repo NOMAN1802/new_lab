@@ -39,7 +39,11 @@ export type FinancialSummary = {
     cashCollected: number;
     outstanding: number;
     commissionAccrued: number;
-    /** Cash collected less the commission owed on it — what the centre keeps. */
+    /** What partner centres charged for corporate tests on settled invoices. */
+    corporateCost: number;
+    /** On those tests: the centre's regular price less the corporate price. */
+    corporateProfit: number;
+    /** Cash collected less commission, plus corporate profit. */
     revenue: number;
     discountRate: number;
     collectionRate: number;

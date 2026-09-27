@@ -74,6 +74,7 @@ const TestsPage = () => {
             name: test.name,
             category: categoryId ?? '',
             price: test.price,
+            corporatePrice: test.corporatePrice ?? null,
             sampleType: test.sampleType ?? '',
             reportDeliveryDays: test.reportDeliveryDays ?? 1,
             isActive: test.isActive,
@@ -94,8 +95,8 @@ const TestsPage = () => {
             toast.error('Test code and name are required');
             return;
         }
-        if (form.price < 0) {
-            toast.error('Price cannot be negative');
+        if (form.price < 0 || (form.corporatePrice ?? 0) < 0) {
+            toast.error('Prices cannot be negative');
             return;
         }
 
@@ -105,6 +106,9 @@ const TestsPage = () => {
             name: form.name.trim(),
             category: form.category || undefined,
             sampleType: form.sampleType?.trim() || undefined,
+            // A blank rate is simply left off a new test, but on an edit it
+            // has to be sent as null so an existing rate is cleared.
+            corporatePrice: form.corporatePrice ?? (editing ? null : undefined),
         };
 
         try {
@@ -185,6 +189,21 @@ const TestsPage = () => {
                                 step="0.01"
                                 value={form.price || ''}
                                 onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                            />
+                            <TextField
+                                label={t('fld.corporatePrice')}
+                                optional
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={form.corporatePrice ?? ''}
+                                onChange={(e) =>
+                                    setForm({
+                                        ...form,
+                                        corporatePrice: e.target.value === '' ? null : Number(e.target.value),
+                                    })
+                                }
+                                hint={t('hint.corporatePrice')}
                             />
                             <TextField
                                 label={t('fld.sampleType')}
@@ -278,6 +297,17 @@ const TestsPage = () => {
                                 header: t('col.price'),
                                 align: 'right',
                                 render: (test) => <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{money(test.price)}</span>,
+                            },
+                            {
+                                key: 'corporatePrice',
+                                header: t('col.corporate'),
+                                align: 'right',
+                                render: (test) =>
+                                    test.corporatePrice != null ? (
+                                        <span style={{ color: 'var(--text-muted)' }}>{money(test.corporatePrice)}</span>
+                                    ) : (
+                                        <span style={{ color: 'var(--text-faint)' }}>—</span>
+                                    ),
                             },
                             ...(isAdmin
                                 ? [

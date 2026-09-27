@@ -9,6 +9,8 @@ export type LabTest = {
     category?: { _id: string; name: string } | string;
     categoryName?: string;
     price: number;
+    /** A partner centre's rate for this test; null or absent means none. */
+    corporatePrice?: number | null;
     sampleType?: string;
     reportDeliveryDays?: number;
     description?: string;
@@ -21,6 +23,8 @@ export type LabTestInput = {
     name: string;
     category?: string;
     price: number;
+    /** null clears an existing corporate rate on update. */
+    corporatePrice?: number | null;
     sampleType?: string;
     reportDeliveryDays?: number;
     description?: string;
