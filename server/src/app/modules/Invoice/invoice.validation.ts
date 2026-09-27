@@ -37,20 +37,22 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
   });
 
 /**
- * An ad-hoc test outside the catalogue. There is no test id to validate
- * against — the receptionist's price is what gets billed — so only shape and
- * sign are checked here.
+ * Every corporate id must also be a booked test — the flag picks the rate for
+ * a line that is already on the bill, it cannot add one.
  */
-const outdoorTestInput = z.object({
-  department: z.string().trim().optional(),
-  name: z
-    .string({ required_error: 'Test name is required' })
-    .trim()
-    .min(1, 'Test name is required'),
-  price: z
-    .number({ invalid_type_error: 'Must be a number' })
-    .min(0, 'Cannot be negative'),
-});
+const corporateSubsetCheck = (
+  body: { testIds: string[]; corporateTestIds?: string[] },
+  ctx: z.RefinementCtx
+) => {
+  const booked = new Set(body.testIds);
+  if ((body.corporateTestIds ?? []).some((id) => !booked.has(id))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['body', 'corporateTestIds'],
+      message: 'A corporate test must also be one of the booked tests',
+    });
+  }
+};
 
 /**
  * Note what is absent: grossAmount, discountAmount, netPayable, commissionAmount,
@@ -67,8 +69,10 @@ const createInvoiceValidationSchema = z
     body: z.object({
       patient: objectId,
       referrer: objectId.optional(),
-      testIds: z.array(objectId).default([]),
-      outdoorTests: z.array(outdoorTestInput).default([]),
+      testIds: z
+        .array(objectId, { required_error: 'Select at least one test' })
+        .min(1, 'Select at least one test'),
+      corporateTestIds: z.array(objectId).optional(),
       visitDate: z.string().datetime().optional(),
       discountPercent: percent.optional(),
       notes: z.string().trim().optional(),
@@ -83,27 +87,19 @@ const createInvoiceValidationSchema = z
         .optional(),
     }),
   })
-  .superRefine((value, ctx) => {
-    const { testIds, outdoorTests } = value.body;
-    if (testIds.length + outdoorTests.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['body', 'testIds'],
-        message: 'Select at least one test',
-      });
-    }
-  });
+  .superRefine((value, ctx) => corporateSubsetCheck(value.body, ctx));
 
 const updateInvoiceItemsValidationSchema = withCommissionCheck(
   z.object({
     body: z.object({
       testIds: z.array(objectId).min(1, 'Select at least one test'),
+      corporateTestIds: z.array(objectId).optional(),
       discountPercent: percent.optional(),
       commissionType: commissionType.optional(),
       commissionValue: commissionValue.optional(),
     }),
   })
-);
+).superRefine((value, ctx) => corporateSubsetCheck(value.body, ctx));
 
 const cancelInvoiceValidationSchema = z.object({
   body: z.object({

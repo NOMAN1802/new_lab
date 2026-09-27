@@ -14,6 +14,7 @@ const TestSchema = new Schema<TTest>(
     category: { type: Schema.Types.ObjectId, ref: 'TestCategory' },
     categoryName: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
+    corporatePrice: { type: Number, min: 0 },
     sampleType: { type: String, trim: true },
     reportDeliveryDays: { type: Number, min: 0, default: 1 },
     description: { type: String, trim: true },

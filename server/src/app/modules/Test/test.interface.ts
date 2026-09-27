@@ -9,6 +9,12 @@ export type TTest = {
   category?: Types.ObjectId;
   categoryName?: string;
   price: number;
+  /**
+   * What a partner centre charges New Lab to run this test. Optional; null or
+   * absent means the test cannot be booked at a corporate rate. Patients are
+   * always billed `price`.
+   */
+  corporatePrice?: number | null;
   sampleType?: string;
   /** Working days until the report is normally ready. */
   reportDeliveryDays?: number;

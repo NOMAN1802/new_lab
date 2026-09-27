@@ -151,6 +151,14 @@ const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: 
     const labGross = invoice.grossAmount - outdoorGross;
     const firstOutdoorIndex = invoice.items.findIndex((item) => item.isOutdoor);
 
+    // Only the centre's copy reveals what a partner centre charged; the
+    // patient's copy always reads the regular price they actually paid.
+    const showCost = kind === 'centre';
+    const corporateCost = liveItems
+        .filter((item) => item.isCorporate)
+        .reduce((total, item) => total + (item.corporatePrice ?? 0), 0);
+    const hasCorporate = liveItems.some((item) => item.isCorporate);
+
     return (
         <section className="copy" style={{ minHeight: `${COPY_HEIGHT_MM}mm` }}>
             {/*
@@ -226,10 +234,11 @@ const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: 
                                     {/* Struck, not dropped: the bill has to show what
                                         happened to a test the patient was told about. */}
                                     <span className={item.isCancelled ? 'line-through' : ''}>{item.testName}</span>
+                                    {showCost && item.isCorporate && <span className="corp-tag">Corp</span>}
                                     {item.isCancelled && <span className="ml-1.5 text-[9px] italic">cancelled</span>}
                                 </td>
                                 <td className={`figure text-right tabular-nums ${item.isCancelled ? 'line-through' : ''}`}>
-                                    {money(item.price)}
+                                    {money(showCost && item.isCorporate ? (item.corporatePrice ?? 0) : item.price)}
                                 </td>
                             </tr>
                         </Fragment>
@@ -301,6 +310,18 @@ const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: 
                             <td>Due</td>
                             <td className="figure">{money(invoice.dueAmount)}</td>
                         </tr>
+                        {showCost && hasCorporate && (
+                            <>
+                                <tr className="corp-row">
+                                    <td>Corporate cost</td>
+                                    <td className="figure">{money(corporateCost)}</td>
+                                </tr>
+                                <tr className="corp-row font-semibold">
+                                    <td>Centre cost</td>
+                                    <td className="figure">{money(invoice.netPayable - corporateCost)}</td>
+                                </tr>
+                            </>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -409,6 +430,12 @@ const PrintInvoicePage = () => {
                 .totals td { border: 1px solid #6b6b6b; padding: 2px 7px; }
                 .totals td:first-child { text-align: right; color: #333; }
                 .totals td:last-child { text-align: right; min-width: 5.4rem; font-variant-numeric: tabular-nums; }
+                .totals .corp-row td { background: #f5f3ee; }
+                .corp-tag {
+                    margin-left: 5px; padding: 0 4px; border: 1px solid #6b6558; border-radius: 3px;
+                    font-family: 'Space Grotesk', sans-serif; font-size: 7px; font-weight: 700;
+                    letter-spacing: .06em; text-transform: uppercase; color: #6b6558;
+                }
                 .status { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
                 .pulse-rule {
                     position: relative; height: 2px; margin: 0 2px;

@@ -101,7 +101,7 @@ const getRevenueReport = async (range: TDateRange, groupBy: TGroupBy) => {
  * separate figures: an invoice raised today may be collected next week.
  */
 const getFinancialSummary = async (range: TDateRange) => {
-  const [billed, collected] = await Promise.all([
+  const [billed, collected, corporate] = await Promise.all([
     Invoice.aggregate([
       { $match: { ...liveInvoice, ...dateRangeFilter('visitDate', range) } },
       {
@@ -125,6 +125,34 @@ const getFinancialSummary = async (range: TDateRange) => {
       { $match: { ...livePayment, ...dateRangeFilter('paymentDate', range) } },
       { $group: { _id: null, collected: { $sum: '$amount' } } },
     ]),
+    /**
+     * Corporate lines on settled invoices — the same scope as commission. The
+     * patient is billed the centre's regular price; running the test at a
+     * partner centre's lower corporate price is the centre's extra margin.
+     */
+    Invoice.aggregate([
+      {
+        $match: {
+          ...liveInvoice,
+          paymentStatus: 'paid',
+          ...dateRangeFilter('visitDate', range),
+        },
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.isCorporate': true,
+          'items.isCancelled': { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          cost: { $sum: '$items.corporatePrice' },
+          regular: { $sum: '$items.price' },
+        },
+      },
+    ]),
   ]);
 
   const b = billed[0] ?? {};
@@ -133,6 +161,10 @@ const getFinancialSummary = async (range: TDateRange) => {
   const netBilled = round2(b.net ?? 0);
   const commissionAccrued = round2(b.commission ?? 0);
   const cashCollected = round2(collected[0]?.collected ?? 0);
+  const corporateCost = round2(corporate[0]?.cost ?? 0);
+  // The centre's extra margin on outsourced tests: its regular price less the
+  // partner centre's corporate price (e.g. CBC 800 - 500 = 300).
+  const corporateProfit = round2((corporate[0]?.regular ?? 0) - corporateCost);
 
   return {
     invoiceCount: b.invoiceCount ?? 0,
@@ -142,17 +174,20 @@ const getFinancialSummary = async (range: TDateRange) => {
     cashCollected,
     outstanding: round2(b.due ?? 0),
     commissionAccrued,
+    corporateCost,
+    corporateProfit,
     /**
-     * Revenue is what the centre actually keeps: cash in hand, less what is
-     * owed to the referring doctors on it. It is built from cashCollected, not
-     * netBilled — an invoice that has not been paid has earned nothing yet.
+     * Revenue is cash in hand, less what is owed to the referring doctors on
+     * it, plus the extra margin earned by running corporate tests at a partner
+     * centre's lower price. It is built from cashCollected, not netBilled — an
+     * invoice that has not been paid has earned nothing yet.
      *
      * The two sides are scoped differently, and deliberately: cash is counted
      * by payment date, commission by the invoice's visit date. Over any period
      * longer than a few days they converge; on a single day a payment against
      * an older invoice can carry no matching commission.
      */
-    revenue: round2(cashCollected - commissionAccrued),
+    revenue: round2(cashCollected - commissionAccrued + corporateProfit),
     discountRate: grossBilled > 0 ? round2((discountGiven / grossBilled) * 100) : 0,
     collectionRate:
       netBilled > 0 ? round2((cashCollected / netBilled) * 100) : 0,

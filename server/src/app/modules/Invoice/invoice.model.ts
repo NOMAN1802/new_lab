@@ -31,6 +31,8 @@ const InvoiceItemSchema = new Schema<TInvoiceItem>({
   reportFile: { type: ReportFileSchema, required: false },
   deliveredAt: { type: Date },
   isOutdoor: { type: Boolean, default: false },
+  isCorporate: { type: Boolean, default: false },
+  corporatePrice: { type: Number, min: 0 },
 
   isCancelled: { type: Boolean, default: false },
   cancelledAt: { type: Date },

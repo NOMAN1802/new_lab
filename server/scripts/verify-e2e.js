@@ -220,6 +220,45 @@ const rejects = async (label, fn, matcher) => {
         check('no commission accrues', walkIn.commissionAmount, 0);
         check('no referrer attached', walkIn.referrer, undefined);
 
+        console.log('\n--- 5b: corporate rate — patient pays regular, centre records its cost ---');
+        const [corpCbc, noRateTest] = await Test.create([
+            { testCode: 'CBC-C', name: 'CBC (partner)', price: 800, corporatePrice: 500 },
+            { testCode: 'ESR', name: 'ESR', price: 150 },
+        ]);
+        // Its own referrer, so section 8's pending-commission count is untouched.
+        const corpReferrer = await Referrer.create({
+            referrerCode: 'RFE-002', name: 'Dr. Corporate', phone: '01722222222',
+            defaultDiscountPercent: 10,
+            defaultCommissionType: 'percent', defaultCommissionValue: 15,
+        });
+        const corpInvoice = await InvoiceServices.createInvoice(
+            { patient: String(patient._id), referrer: String(corpReferrer._id),
+              testIds: [String(corpCbc._id), String(noRateTest._id)],
+              corporateTestIds: [String(corpCbc._id)],
+              // A tampered cost in the payload must have no effect.
+              items: [{ corporatePrice: 1 }], corporatePrice: 1 },
+            String(reception._id)
+        );
+        const [corpLine, regularLine] = corpInvoice.items;
+        check('corporate line still bills the regular price', corpLine.price, 800);
+        check('corporate line flagged', corpLine.isCorporate, true);
+        check('corporate cost from the catalogue, not the request', corpLine.corporatePrice, 500);
+        check('regular line not flagged', regularLine.isCorporate, false);
+        check('regular line has no cost', regularLine.corporatePrice, undefined);
+        check('gross on regular prices', corpInvoice.grossAmount, 950);
+        check('discount on regular prices (10% of 950)', corpInvoice.discountAmount, 95);
+        check('patient pays regular net', corpInvoice.netPayable, 855);
+        check('commission on regular net (15% of 855)', corpInvoice.commissionAmount, 128.25);
+        await rejects(
+            'a test with no corporate rate cannot be booked as corporate',
+            () => InvoiceServices.createInvoice(
+                { patient: String(patient._id), testIds: [String(noRateTest._id)],
+                  corporateTestIds: [String(noRateTest._id)] },
+                String(reception._id)
+            ),
+            'has no corporate rate'
+        );
+
         console.log('\n--- 6: role-based field restriction ---');
         // Re-read: `invoice` is the object createInvoice returned, so its
         // cached totals predate the payments above.
@@ -307,10 +346,11 @@ const rejects = async (label, fn, matcher) => {
         // 1000 + 800 (the first invoice, its voided 800 repaid in step 8 to
         // settle it for payout) + 700 taken at the counter
         check('cash collected excludes the voided receipt', financial.cashCollected, 2500);
-        // invoice, tampered, same-day, counter-settled, fully-discounted, walk-in
-        check('invoices counted', financial.invoiceCount, 6);
-        check('gross billed', financial.grossBilled, 2000 + 800 + 800 + 700 + 500 + 500);
-        check('discount given', financial.discountGiven, 200 + 500);
+        // invoice, tampered, same-day, counter-settled, fully-discounted, walk-in,
+        // corporate (billed at regular prices, so its cost never reaches revenue)
+        check('invoices counted', financial.invoiceCount, 7);
+        check('gross billed', financial.grossBilled, 2000 + 800 + 800 + 700 + 500 + 500 + 950);
+        check('discount given', financial.discountGiven, 200 + 500 + 95);
 
         const dues = await ReportsServices.getDuesReport(wide);
         const outstandingSum = (await Invoice.aggregate([
@@ -323,6 +363,22 @@ const rejects = async (label, fn, matcher) => {
         check('commission accrued', commissionReport.summary.commissionAccrued, 270);
         check('commission paid', commissionReport.summary.commissionPaid, 270);
         check('commission pending', commissionReport.summary.commissionPending, 0);
+
+        console.log('\n--- 9b: corporate cost and profit reach revenue once the invoice is settled ---');
+        check('unsettled corporate invoice adds no corporate cost', financial.corporateCost, 0);
+        check('revenue is cash less commission', financial.revenue, 2500 - 270);
+
+        await PaymentServices.createPayment(
+            { invoice: String(corpInvoice._id), amount: 855 }, String(reception._id)
+        );
+        const withCorporate = await ReportsServices.getFinancialSummary(wide);
+        check('corporate cost counted once settled', withCorporate.corporateCost, 500);
+        // Centre price 800 less corporate price 500; the patient's discount
+        // does not enter into it.
+        check('corporate profit = centre price - corporate price',
+            withCorporate.corporateProfit, 300);
+        // cash (2500 + 855) - commission (270 + 128.25) + corporate profit (300)
+        check('revenue adds corporate profit', withCorporate.revenue, 3256.75);
 
         console.log('\n--- 10: dashboards differ by role ---');
         const adminView = await DashboardServices.getAdminDashboard(wide, 'daily');

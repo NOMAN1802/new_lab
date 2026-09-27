@@ -4,6 +4,12 @@ const objectId = z
   .string()
   .regex(/^[0-9a-fA-F]{24}$/, 'Invalid category id');
 
+/** Null clears the rate on update. */
+const corporatePrice = z
+  .number({ invalid_type_error: 'Corporate rate must be a number' })
+  .min(0, 'Corporate rate cannot be negative')
+  .nullable();
+
 const createTestValidationSchema = z.object({
   body: z.object({
     testCode: z
@@ -18,6 +24,7 @@ const createTestValidationSchema = z.object({
     price: z
       .number({ required_error: 'Price is required', invalid_type_error: 'Price must be a number' })
       .min(0, 'Price cannot be negative'),
+    corporatePrice: corporatePrice.optional(),
     sampleType: z.string().trim().optional(),
     reportDeliveryDays: z.number().int().min(0).optional(),
     description: z.string().trim().optional(),
@@ -31,6 +38,7 @@ const updateTestValidationSchema = z.object({
     name: z.string().trim().min(1).optional(),
     category: objectId.optional(),
     price: z.number().min(0, 'Price cannot be negative').optional(),
+    corporatePrice: corporatePrice.optional(),
     sampleType: z.string().trim().optional(),
     reportDeliveryDays: z.number().int().min(0).optional(),
     description: z.string().trim().optional(),

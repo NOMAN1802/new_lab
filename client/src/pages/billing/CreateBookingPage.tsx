@@ -13,7 +13,6 @@ import Textarea from '@/components/ui/Textarea';
 import { useT } from '@/i18n/useLanguage';
 import { apiErrorMessage, money } from '@/lib/format';
 import { useCreateInvoiceMutation } from '@/services/invoicesApi';
-import type { OutdoorTestInput } from '@/services/invoicesApi';
 import { useGetPatientsQuery } from '@/services/patientsApi';
 import { useGetReferrersQuery } from '@/services/referrersApi';
 import { useGetTestsQuery } from '@/services/testsApi';
@@ -24,8 +23,10 @@ const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 1
 /** How much of the bill is taken at the counter, right now. */
 type PayMode = 'full' | 'part' | 'none';
 
-/** Which side of the Tests panel is showing. */
-type TestTab = 'catalogue' | 'outdoor';
+/** A booked line; `corporate` means it goes to a partner centre at its corporate rate. */
+type SelectedTest = { test: LabTest; corporate: boolean };
+
+const hasCorporateRate = (test: LabTest) => test.corporatePrice != null;
 
 const testRow: React.CSSProperties = {
     display: 'flex',
@@ -51,13 +52,8 @@ const CreateBookingPage = () => {
     const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
     const [patientSearch, setPatientSearch] = useState('');
     const [referrerId, setReferrerId] = useState('');
-    const [selected, setSelected] = useState<LabTest[]>([]);
+    const [selected, setSelected] = useState<SelectedTest[]>([]);
     const [testSearch, setTestSearch] = useState('');
-    const [testTab, setTestTab] = useState<TestTab>('catalogue');
-    const [outdoorTests, setOutdoorTests] = useState<OutdoorTestInput[]>([]);
-    const [outdoorDepartment, setOutdoorDepartment] = useState('');
-    const [outdoorName, setOutdoorName] = useState('');
-    const [outdoorPrice, setOutdoorPrice] = useState('');
     const [notes, setNotes] = useState('');
     // Blank means "use the referrer's standing terms".
     const [discountOverride, setDiscountOverride] = useState('');
@@ -89,21 +85,23 @@ const CreateBookingPage = () => {
      * submit, so a mismatch here can never change what the patient is billed.
      */
     const totals = (() => {
-        const gross = round2(selected.reduce((sum, test) => sum + test.price, 0));
-        const outdoorGross = round2(outdoorTests.reduce((sum, test) => sum + test.price, 0));
+        // The patient always pays the regular price, corporate line or not.
+        const gross = round2(selected.reduce((sum, line) => sum + line.test.price, 0));
+        const corporateCost = round2(
+            selected.reduce((sum, line) => sum + (line.corporate ? (line.test.corporatePrice ?? 0) : 0), 0),
+        );
 
         // The discount comes off the patient's bill. It defaults from the
-        // referrer, but can be given to a walk-in too. An outdoor test is
-        // billed exactly as entered — it never carries a discount.
+        // referrer, but can be given to a walk-in too.
         const discountPercent = discountOverride !== '' ? Number(discountOverride) : (referrer?.defaultDiscountPercent ?? 0);
 
         const discount = round2((gross * discountPercent) / 100);
-        const net = round2(gross - discount + outdoorGross);
+        const net = round2(gross - discount);
 
         // Commission is deliberately absent: booking records who referred the
         // patient, and an Admin settles what they are owed from the Doctor's
         // Commission screen.
-        return { gross, outdoorGross, discountPercent, discount, net };
+        return { gross, discountPercent, discount, net, corporateCost };
     })();
 
     /**
@@ -121,29 +119,10 @@ const CreateBookingPage = () => {
                 ? `Cannot take more than the ${money(totals.net)} payable`
                 : undefined;
 
-    const addTest = (test: LabTest) => setSelected((current) => [...current, test]);
+    const addTest = (test: LabTest) => setSelected((current) => [...current, { test, corporate: false }]);
     const removeTest = (index: number) => setSelected((current) => current.filter((_, i) => i !== index));
-
-    const addOutdoorTest = () => {
-        const price = Number(outdoorPrice);
-        if (!outdoorName.trim()) {
-            toast.error('Enter a test name');
-            return;
-        }
-        if (!Number.isFinite(price) || price < 0) {
-            toast.error('Enter a valid price');
-            return;
-        }
-        setOutdoorTests((current) => [
-            ...current,
-            { department: outdoorDepartment.trim() || undefined, name: outdoorName.trim(), price },
-        ]);
-        setOutdoorDepartment('');
-        setOutdoorName('');
-        setOutdoorPrice('');
-    };
-    const removeOutdoorTest = (index: number) =>
-        setOutdoorTests((current) => current.filter((_, i) => i !== index));
+    const setCorporate = (index: number, corporate: boolean) =>
+        setSelected((current) => current.map((line, i) => (i === index ? { ...line, corporate } : line)));
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -152,7 +131,7 @@ const CreateBookingPage = () => {
             toast.error('Select a patient first');
             return;
         }
-        if (selected.length === 0 && outdoorTests.length === 0) {
+        if (selected.length === 0) {
             toast.error('Add at least one test');
             return;
         }
@@ -169,8 +148,10 @@ const CreateBookingPage = () => {
             const invoice = await createInvoice({
                 patient: patientId,
                 referrer: referrerId || undefined,
-                testIds: selected.map((test) => test._id),
-                outdoorTests: outdoorTests.length > 0 ? outdoorTests : undefined,
+                testIds: selected.map((line) => line.test._id),
+                corporateTestIds: selected.some((line) => line.corporate)
+                    ? selected.filter((line) => line.corporate).map((line) => line.test._id)
+                    : undefined,
                 notes: notes.trim() || undefined,
                 collectFullPayment: payMode === 'full',
                 advanceAmount: payMode === 'part' ? advanceTaken : undefined,
@@ -300,117 +281,78 @@ const CreateBookingPage = () => {
 
                     <Panel title={t('booking.tests')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <SegmentedControl
-                                options={[
-                                    { label: t('booking.catalogueTab'), value: 'catalogue' },
-                                    { label: t('booking.outdoorTab'), value: 'outdoor' },
-                                ]}
-                                value={testTab}
-                                onChange={(value) => setTestTab(value as TestTab)}
+                            <TextField
+                                icon="search"
+                                type="search"
+                                value={testSearch}
+                                onChange={(e) => setTestSearch(e.target.value)}
+                                placeholder={t('booking.searchTests')}
                             />
 
-                            {testTab === 'catalogue' ? (
-                                <>
-                                    <TextField
-                                        icon="search"
-                                        type="search"
-                                        value={testSearch}
-                                        onChange={(e) => setTestSearch(e.target.value)}
-                                        placeholder={t('booking.searchTests')}
-                                    />
-
-                                    {loadingTests ? (
-                                        <Loader message={t('booking.loadingCatalogue')} />
-                                    ) : (
-                                        <ul
-                                            style={{
-                                                listStyle: 'none',
-                                                margin: 0,
-                                                padding: 0,
-                                                maxHeight: 260,
-                                                overflowY: 'auto',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: 2,
-                                            }}
-                                        >
-                                            {tests.map((test) => (
-                                                <li key={test._id}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => addTest(test)}
-                                                        style={testRow}
-                                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--brand-tint)')}
-                                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                                                    >
-                                                        <span>
-                                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--brand)' }}>
-                                                                {test.testCode}
-                                                            </span>{' '}
-                                                            <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
-                                                        </span>
-                                                        <span
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: 10,
-                                                                color: 'var(--text-muted)',
-                                                                fontVariantNumeric: 'tabular-nums',
-                                                            }}
-                                                        >
-                                                            {money(test.price)}
-                                                            <Icon name="plus" size={15} color="var(--brand)" />
-                                                        </span>
-                                                    </button>
-                                                </li>
-                                            ))}
-                                            {tests.length === 0 && (
-                                                <li style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
-                                                    {t('jsx.noTestsMatch')}
-                                                </li>
-                                            )}
-                                        </ul>
-                                    )}
-                                </>
+                            {loadingTests ? (
+                                <Loader message={t('booking.loadingCatalogue')} />
                             ) : (
-                                <>
-                                    <TextField
-                                        label={t('booking.outdoorDepartment')}
-                                        optional
-                                        value={outdoorDepartment}
-                                        onChange={(e) => setOutdoorDepartment(e.target.value)}
-                                        placeholder={t('booking.outdoorDepartmentPlaceholder')}
-                                    />
-                                    <TextField
-                                        label={t('booking.outdoorName')}
-                                        value={outdoorName}
-                                        onChange={(e) => setOutdoorName(e.target.value)}
-                                    />
-                                    <TextField
-                                        label={t('booking.outdoorPrice')}
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={outdoorPrice}
-                                        onChange={(e) => setOutdoorPrice(e.target.value)}
-                                        placeholder="0.00"
-                                    />
-                                    <Button type="button" variant="secondary" block onClick={addOutdoorTest}>
-                                        {t('booking.addOutdoorTest')}
-                                    </Button>
-                                    <InlineAlert tone="info">{t('booking.outdoorNote')}</InlineAlert>
-                                </>
+                                <ul
+                                    style={{
+                                        listStyle: 'none',
+                                        margin: 0,
+                                        padding: 0,
+                                        maxHeight: 260,
+                                        overflowY: 'auto',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 2,
+                                    }}
+                                >
+                                    {tests.map((test) => (
+                                        <li key={test._id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => addTest(test)}
+                                                style={testRow}
+                                                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--brand-tint)')}
+                                                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                            >
+                                                <span>
+                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--brand)' }}>
+                                                        {test.testCode}
+                                                    </span>{' '}
+                                                    <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 10,
+                                                        color: 'var(--text-muted)',
+                                                        fontVariantNumeric: 'tabular-nums',
+                                                    }}
+                                                >
+                                                    {hasCorporateRate(test) && (
+                                                        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                                                            {t('booking.corporateHint')} {money(test.corporatePrice ?? 0)}
+                                                        </span>
+                                                    )}
+                                                    {money(test.price)}
+                                                    <Icon name="plus" size={15} color="var(--brand)" />
+                                                </span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                    {tests.length === 0 && (
+                                        <li style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+                                            {t('jsx.noTestsMatch')}
+                                        </li>
+                                    )}
+                                </ul>
                             )}
                         </div>
                     </Panel>
                 </div>
 
-                <Panel
-                    title={`${t('booking.selectedTests')} (${selected.length + outdoorTests.length})`}
-                    style={{ position: 'sticky', top: 'calc(var(--topbar-h) + 16px)' }}
-                >
+                <Panel title={`${t('booking.selectedTests')} (${selected.length})`} style={{ position: 'sticky', top: 'calc(var(--topbar-h) + 16px)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {selected.length === 0 && outdoorTests.length === 0 ? (
+                        {selected.length === 0 ? (
                             <p
                                 style={{
                                     border: '1px dashed var(--border-subtle)',
@@ -425,13 +367,14 @@ const CreateBookingPage = () => {
                             </p>
                         ) : (
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {selected.map((test, index) => (
+                                {selected.map(({ test, corporate }, index) => (
                                     <li
-                                        key={`cat-${test._id}-${index}`}
+                                        key={`${test._id}-${index}`}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
+                                            flexWrap: 'wrap',
                                             gap: 12,
                                             background: 'var(--surface-sunken)',
                                             borderRadius: 'var(--radius-md)',
@@ -439,45 +382,32 @@ const CreateBookingPage = () => {
                                             fontSize: 13,
                                         }}
                                     >
-                                        <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
+                                        <span style={{ display: 'flex', flexDirection: 'column', gap: 6, color: 'var(--text-body)' }}>
+                                            {test.name}
+                                            {hasCorporateRate(test) && (
+                                                <SegmentedControl
+                                                    size="sm"
+                                                    options={[
+                                                        { label: t('booking.regular'), value: 'regular' },
+                                                        { label: t('booking.corporate'), value: 'corporate' },
+                                                    ]}
+                                                    value={corporate ? 'corporate' : 'regular'}
+                                                    onChange={(value) => setCorporate(index, value === 'corporate')}
+                                                />
+                                            )}
+                                        </span>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                                            <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
+                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
+                                                {corporate && (
+                                                    <span style={{ fontSize: 11, color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {t('booking.corporateCost')} {money(test.corporatePrice ?? 0)}
+                                                    </span>
+                                                )}
+                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={() => removeTest(index)}
-                                                aria-label={`Remove ${test.name}`}
-                                                style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--danger)', display: 'flex' }}
-                                            >
-                                                <Icon name="trash-2" size={15} />
-                                            </button>
-                                        </span>
-                                    </li>
-                                ))}
-                                {outdoorTests.map((test, index) => (
-                                    <li
-                                        key={`out-${index}`}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: 12,
-                                            background: 'var(--warning-bg)',
-                                            borderRadius: 'var(--radius-md)',
-                                            padding: '10px 14px',
-                                            fontSize: 13,
-                                        }}
-                                    >
-                                        <span style={{ color: 'var(--text-body)' }}>
-                                            {test.name}
-                                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', color: 'var(--warning-strong)' }}>
-                                                OUTDOOR
-                                            </span>
-                                        </span>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                                            <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeOutdoorTest(index)}
                                                 aria-label={`Remove ${test.name}`}
                                                 style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--danger)', display: 'flex' }}
                                             >
@@ -510,12 +440,6 @@ const CreateBookingPage = () => {
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>−{money(totals.discount)}</dd>
                                 </div>
                             )}
-                            {totals.outdoorGross > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <dt style={{ color: 'var(--text-muted)' }}>{t('booking.outdoorTestsLine')}</dt>
-                                    <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.outdoorGross)}</dd>
-                                </div>
-                            )}
                             <div
                                 style={{
                                     display: 'flex',
@@ -529,7 +453,13 @@ const CreateBookingPage = () => {
                                 <dt style={{ color: 'var(--text-heading)' }}>{t('booking.patientPays')}</dt>
                                 <dd style={{ margin: 0, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.net)}</dd>
                             </div>
-
+                            {/* The centre's own cost — not part of what the patient pays. */}
+                            {totals.corporateCost > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-faint)' }}>
+                                    <dt>{t('booking.corporateCost')}</dt>
+                                    <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>{money(totals.corporateCost)}</dd>
+                                </div>
+                            )}
                         </dl>
 
                         <Textarea label={t('booking.notes')} optional rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -579,7 +509,7 @@ const CreateBookingPage = () => {
                             block
                             size="lg"
                             loading={isSubmitting}
-                            disabled={(selected.length === 0 && outdoorTests.length === 0) || !patientId || Boolean(advanceError)}
+                            disabled={selected.length === 0 || !patientId || Boolean(advanceError)}
                         >
                             {isSubmitting ? t('booking.creating') : payMode === 'none' ? t('booking.create') : t('booking.createAndPay')}
                         </Button>

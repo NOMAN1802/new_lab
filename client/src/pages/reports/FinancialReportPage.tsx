@@ -110,6 +110,21 @@ const FinancialReportPage = () => {
                         />
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
+                        <StatCard
+                            label={t('rep.corporateCost')}
+                            value={money(summary.corporateCost)}
+                            accent="warning"
+                            caption={t('rep.corporateCostCaption')}
+                        />
+                        <StatCard
+                            label={t('rep.corporateProfit')}
+                            value={money(summary.corporateProfit)}
+                            accent="accent"
+                            caption={t('rep.corporateProfitCaption')}
+                        />
+                    </div>
+
                     <Panel title={`Cash collected, ${groupBy}`} subtitle={t('ttl.groupedDhaka')}>
                         {series.length === 0 ? (
                             <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 'var(--text-13)', color: 'var(--text-muted)' }}>
