@@ -373,12 +373,17 @@ const rejects = async (label, fn, matcher) => {
         );
         const withCorporate = await ReportsServices.getFinancialSummary(wide);
         check('corporate cost counted once settled', withCorporate.corporateCost, 500);
-        // Centre price 800 less corporate price 500; the patient's discount
-        // does not enter into it.
-        check('corporate profit = centre price - corporate price',
-            withCorporate.corporateProfit, 300);
-        // cash (2500 + 855) - commission (270 + 128.25) + corporate profit (300)
-        check('revenue adds corporate profit', withCorporate.revenue, 3256.75);
+        // Centre price 800, discounted 10% like the rest of the lab bundle,
+        // nets 720 from the patient; less the 500 corporate price leaves 220 -
+        // not the discount-blind 300 (800 - 500) an undiscounted figure would
+        // claim.
+        check('corporate profit = discounted centre price - corporate price',
+            withCorporate.corporateProfit, 220);
+        // cash (2500 + 855) - commission (270 + 128.25) - corporate cost (500).
+        // corporateCost is subtracted, not corporateProfit added, because the
+        // 855 cash already includes the patient's discounted payment for the
+        // corporate line.
+        check('revenue subtracts corporate cost', withCorporate.revenue, 2456.75);
 
         console.log('\n--- 10: dashboards differ by role ---');
         const adminView = await DashboardServices.getAdminDashboard(wide, 'daily');
