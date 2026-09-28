@@ -23,6 +23,11 @@ const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 1
 /** How much of the bill is taken at the counter, right now. */
 type PayMode = 'full' | 'part' | 'none';
 
+/** A booked line; `corporate` means it goes to a partner centre at its corporate rate. */
+type SelectedTest = { test: LabTest; corporate: boolean };
+
+const hasCorporateRate = (test: LabTest) => test.corporatePrice != null;
+
 const testRow: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -47,7 +52,7 @@ const CreateBookingPage = () => {
     const [patientId, setPatientId] = useState(searchParams.get('patient') ?? '');
     const [patientSearch, setPatientSearch] = useState('');
     const [referrerId, setReferrerId] = useState('');
-    const [selected, setSelected] = useState<LabTest[]>([]);
+    const [selected, setSelected] = useState<SelectedTest[]>([]);
     const [testSearch, setTestSearch] = useState('');
     const [notes, setNotes] = useState('');
     // Blank means "use the referrer's standing terms".
@@ -80,7 +85,11 @@ const CreateBookingPage = () => {
      * submit, so a mismatch here can never change what the patient is billed.
      */
     const totals = (() => {
-        const gross = round2(selected.reduce((sum, test) => sum + test.price, 0));
+        // The patient always pays the regular price, corporate line or not.
+        const gross = round2(selected.reduce((sum, line) => sum + line.test.price, 0));
+        const corporateCost = round2(
+            selected.reduce((sum, line) => sum + (line.corporate ? (line.test.corporatePrice ?? 0) : 0), 0),
+        );
 
         // The discount comes off the patient's bill. It defaults from the
         // referrer, but can be given to a walk-in too.
@@ -92,7 +101,7 @@ const CreateBookingPage = () => {
         // Commission is deliberately absent: booking records who referred the
         // patient, and an Admin settles what they are owed from the Doctor's
         // Commission screen.
-        return { gross, discountPercent, discount, net };
+        return { gross, discountPercent, discount, net, corporateCost };
     })();
 
     /**
@@ -110,8 +119,10 @@ const CreateBookingPage = () => {
                 ? `Cannot take more than the ${money(totals.net)} payable`
                 : undefined;
 
-    const addTest = (test: LabTest) => setSelected((current) => [...current, test]);
+    const addTest = (test: LabTest) => setSelected((current) => [...current, { test, corporate: false }]);
     const removeTest = (index: number) => setSelected((current) => current.filter((_, i) => i !== index));
+    const setCorporate = (index: number, corporate: boolean) =>
+        setSelected((current) => current.map((line, i) => (i === index ? { ...line, corporate } : line)));
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -137,7 +148,10 @@ const CreateBookingPage = () => {
             const invoice = await createInvoice({
                 patient: patientId,
                 referrer: referrerId || undefined,
-                testIds: selected.map((test) => test._id),
+                testIds: selected.map((line) => line.test._id),
+                corporateTestIds: selected.some((line) => line.corporate)
+                    ? selected.filter((line) => line.corporate).map((line) => line.test._id)
+                    : undefined,
                 notes: notes.trim() || undefined,
                 collectFullPayment: payMode === 'full',
                 advanceAmount: payMode === 'part' ? advanceTaken : undefined,
@@ -314,6 +328,11 @@ const CreateBookingPage = () => {
                                                         fontVariantNumeric: 'tabular-nums',
                                                     }}
                                                 >
+                                                    {hasCorporateRate(test) && (
+                                                        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                                                            {t('booking.corporateHint')} {money(test.corporatePrice ?? 0)}
+                                                        </span>
+                                                    )}
                                                     {money(test.price)}
                                                     <Icon name="plus" size={15} color="var(--brand)" />
                                                 </span>
@@ -348,13 +367,14 @@ const CreateBookingPage = () => {
                             </p>
                         ) : (
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {selected.map((test, index) => (
+                                {selected.map(({ test, corporate }, index) => (
                                     <li
                                         key={`${test._id}-${index}`}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
+                                            flexWrap: 'wrap',
                                             gap: 12,
                                             background: 'var(--surface-sunken)',
                                             borderRadius: 'var(--radius-md)',
@@ -362,9 +382,29 @@ const CreateBookingPage = () => {
                                             fontSize: 13,
                                         }}
                                     >
-                                        <span style={{ color: 'var(--text-body)' }}>{test.name}</span>
+                                        <span style={{ display: 'flex', flexDirection: 'column', gap: 6, color: 'var(--text-body)' }}>
+                                            {test.name}
+                                            {hasCorporateRate(test) && (
+                                                <SegmentedControl
+                                                    size="sm"
+                                                    options={[
+                                                        { label: t('booking.regular'), value: 'regular' },
+                                                        { label: t('booking.corporate'), value: 'corporate' },
+                                                    ]}
+                                                    value={corporate ? 'corporate' : 'regular'}
+                                                    onChange={(value) => setCorporate(index, value === 'corporate')}
+                                                />
+                                            )}
+                                        </span>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-                                            <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
+                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                <span style={{ color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(test.price)}</span>
+                                                {corporate && (
+                                                    <span style={{ fontSize: 11, color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {t('booking.corporateCost')} {money(test.corporatePrice ?? 0)}
+                                                    </span>
+                                                )}
+                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={() => removeTest(index)}
@@ -413,7 +453,13 @@ const CreateBookingPage = () => {
                                 <dt style={{ color: 'var(--text-heading)' }}>{t('booking.patientPays')}</dt>
                                 <dd style={{ margin: 0, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{money(totals.net)}</dd>
                             </div>
-
+                            {/* The centre's own cost — not part of what the patient pays. */}
+                            {totals.corporateCost > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-faint)' }}>
+                                    <dt>{t('booking.corporateCost')}</dt>
+                                    <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>{money(totals.corporateCost)}</dd>
+                                </div>
+                            )}
                         </dl>
 
                         <Textarea label={t('booking.notes')} optional rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

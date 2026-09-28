@@ -19,7 +19,7 @@ export type ReportFile = {
 
 export type InvoiceItem = {
     _id: string;
-    test: string;
+    test?: string;
     testCode: string;
     testName: string;
     categoryName?: string;
@@ -27,6 +27,16 @@ export type InvoiceItem = {
     reportStatus: ReportStatus;
     reportFile?: ReportFile;
     deliveredAt?: string;
+
+    /** Legacy ad-hoc test, no longer bookable; older invoices still carry it. */
+    isOutdoor?: boolean;
+
+    /**
+     * Booked through a partner centre. `price` is still what the patient pays;
+     * corporatePrice is the centre's cost, shown only on the centre's copy.
+     */
+    isCorporate?: boolean;
+    corporatePrice?: number;
 
     /**
      * A test called off after booking. The line stays on the invoice, struck
@@ -95,6 +105,8 @@ export type CreateInvoiceInput = {
     patient: string;
     referrer?: string;
     testIds: string[];
+    /** The subset of testIds booked at the partner centre's corporate rate. */
+    corporateTestIds?: string[];
     visitDate?: string;
     /** Omit to take the referrer's default. Admin-only override. */
     discountPercent?: number;

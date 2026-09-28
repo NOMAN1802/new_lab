@@ -284,6 +284,22 @@ const InvoiceDetailPage = () => {
                                                 {item.testCode}
                                             </span>{' '}
                                             <span style={{ color: 'var(--text-heading)' }}>{item.testName}</span>
+                                            {item.isCorporate && (
+                                                <span
+                                                    title={`Corporate cost ${money(item.corporatePrice ?? 0)}`}
+                                                    style={{
+                                                        marginLeft: 6,
+                                                        padding: '1px 6px',
+                                                        borderRadius: 999,
+                                                        background: 'var(--surface-muted)',
+                                                        fontSize: 10,
+                                                        fontWeight: 600,
+                                                        color: 'var(--text-muted)',
+                                                    }}
+                                                >
+                                                    Corporate · {money(item.corporatePrice ?? 0)}
+                                                </span>
+                                            )}
                                         </span>
                                     ),
                                 },
@@ -506,6 +522,17 @@ const InvoiceDetailPage = () => {
                                     <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>−{money(invoice.discountAmount)}</dd>
                                 </div>
                             )}
+                            {(() => {
+                                const outdoorGross = invoice.items
+                                    .filter((item) => item.isOutdoor && !item.isCancelled)
+                                    .reduce((total, item) => total + item.price, 0);
+                                return outdoorGross > 0 ? (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <dt style={{ color: 'var(--text-muted)' }}>Outdoor tests</dt>
+                                        <dd style={{ margin: 0, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{money(outdoorGross)}</dd>
+                                    </div>
+                                ) : null;
+                            })()}
                             <div
                                 style={{
                                     display: 'flex',
@@ -543,6 +570,19 @@ const InvoiceDetailPage = () => {
                                     {money(invoice.dueAmount)}
                                 </dd>
                             </div>
+
+                            {/* What partner centres charge for corporate lines —
+                                the centre's cost, not part of the patient's bill. */}
+                            {(() => {
+                                const corporate = invoice.items.filter((item) => item.isCorporate && !item.isCancelled);
+                                const corporateCost = corporate.reduce((total, item) => total + (item.corporatePrice ?? 0), 0);
+                                return corporate.length > 0 ? (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
+                                        <dt>Corporate cost</dt>
+                                        <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>{money(corporateCost)}</dd>
+                                    </div>
+                                ) : null;
+                            })()}
 
                             {/* Below the line: what the centre pays the referrer.
                                 It is not part of the patient's bill. */}

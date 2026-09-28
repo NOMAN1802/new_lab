@@ -55,6 +55,8 @@ export type TCreateInvoiceInput = {
   patient: string;
   referrer?: string;
   testIds: string[];
+  /** Tests (a subset of testIds) booked through a partner centre at its corporate rate. */
+  corporateTestIds?: string[];
   visitDate?: string;
   discountPercent?: number;
   notes?: string;
@@ -71,10 +73,14 @@ export type TCreateInvoiceInput = {
 /**
  * Builds invoice items from the catalogue. Prices are read from the Test
  * collection - never from the request - so a tampered payload cannot change
- * what a patient is billed.
+ * what a patient is billed, nor what the centre records as its cost.
+ *
+ * A corporate line still bills the patient the regular price; the corporate
+ * rate is only snapshotted as the centre's cost for the centre's copy.
  */
 const buildItems = async (
   testIds: string[],
+  corporateTestIds: string[] = [],
   session?: mongoose.ClientSession
 ): Promise<TInvoiceItem[]> => {
   const uniqueIds = [...new Set(testIds)];
@@ -93,10 +99,22 @@ const buildItems = async (
   }
 
   const byId = new Map(tests.map((test) => [String(test._id), test]));
+  const corporate = new Set(corporateTestIds);
+
+  for (const id of corporate) {
+    const test = byId.get(id);
+    if (test && test.corporatePrice == null) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `${test.name} has no corporate rate`
+      );
+    }
+  }
 
   // Preserve the order the receptionist selected, including repeats.
   return testIds.map((id) => {
     const test = byId.get(id)!;
+    const isCorporate = corporate.has(id);
     return {
       test: test._id as Types.ObjectId,
       testCode: test.testCode,
@@ -104,6 +122,10 @@ const buildItems = async (
       categoryName: test.categoryName,
       price: test.price,
       reportStatus: 'pending' as const,
+      isOutdoor: false,
+      isCorporate,
+      // Non-null: a corporate id without a rate was rejected above.
+      ...(isCorporate ? { corporatePrice: test.corporatePrice as number } : {}),
     };
   });
 };
@@ -129,7 +151,11 @@ const createInvoice = async (
     }
   }
 
-  const items = await buildItems(payload.testIds);
+  // validateRequest never writes parsed defaults back to req.body.
+  const items = await buildItems(
+    payload.testIds,
+    payload.corporateTestIds ?? []
+  );
 
   // The discount comes off the patient's bill; it defaults from the referrer
   // but can be given to a walk-in too, so an explicit value always wins.
@@ -307,7 +333,8 @@ const updateInvoiceItems = async (
   testIds: string[],
   discountPercent?: number,
   commissionType?: TCommissionType,
-  commissionValue?: number
+  commissionValue?: number,
+  corporateTestIds: string[] = []
 ): Promise<TInvoice> => {
   const invoice = await Invoice.findById(id);
   if (!invoice) throw new AppError(httpStatus.NOT_FOUND, 'Invoice not found');
@@ -329,7 +356,17 @@ const updateInvoiceItems = async (
     );
   }
 
-  const items = await buildItems(testIds);
+  // Outdoor tests can no longer be booked, but older invoices still carry
+  // them; they have no catalogue id to resubmit, so they are kept as-is.
+  const existingOutdoorItems = invoice.items
+    .filter((item) => item.isOutdoor)
+    .map((item) =>
+      (item as unknown as { toObject: () => TInvoiceItem }).toObject()
+    );
+  const items = [
+    ...(await buildItems(testIds, corporateTestIds)),
+    ...existingOutdoorItems,
+  ];
   const nextDiscount = discountPercent ?? invoice.discountPercent;
   const nextCommissionType = commissionType ?? invoice.commissionType;
   const nextCommissionValue = commissionValue ?? invoice.commissionValue;

@@ -1,13 +1,17 @@
 import { Fragment, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { QRCodeSVG } from 'qrcode.react';
 import ErrorState from '@/components/common/ErrorState';
 import Loader from '@/components/common/Loader';
 import BrandLogo from '@/components/brand/BrandLogo';
+import BrandMark from '@/components/brand/BrandMark';
+import Icon from '@/components/ui/Icon';
+import type { IconName } from '@/components/ui/Icon';
 import { BRAND_BLUE, BRAND_GREEN, BRAND_TAGLINE_BN, BRAND_VALUES } from '@/lib/brand';
 import { CENTRE } from '@/lib/centre';
-import { formatDate, formatDateTime, money } from '@/lib/format';
+import { formatDateTime, money } from '@/lib/format';
 import { isUnreachableBase, publicReportUrl } from '@/lib/publicUrl';
 import { useGetInvoiceQuery } from '@/services/invoicesApi';
 import type { Invoice } from '@/services/invoicesApi';
@@ -25,8 +29,8 @@ type Receipt = {
 };
 
 const COPY_LABEL: Record<CopyKind, string> = {
-    patient: 'Patient copy',
-    centre: 'Centre copy',
+    patient: 'Patient Copy',
+    centre: 'Centre Copy',
 };
 
 const SELECTION_LABEL: Record<CopySelection, string> = {
@@ -36,284 +40,322 @@ const SELECTION_LABEL: Record<CopySelection, string> = {
 };
 
 /**
- * The centre's letterhead: the logo, the contact details, and beneath a
- * blue-to-green rule the three values and the Bangla tagline from the
- * centre's own signage. Printed in English, like the rest of the document.
+ * Paper. Each copy is an A5 portrait sheet framed by the letterhead. Both
+ * copies print side by side on one A4 landscape sheet -- two A5 halves -- to
+ * be cut down the middle; a single copy prints on A5 by itself.
  */
-const Letterhead = () => (
+const MARGIN_MM = 8;
+const PAPER = {
+    both: { size: 'A4 landscape', width: 297, height: 210 },
+    single: { size: 'A5 portrait', width: 148, height: 210 },
+} as const;
+/** The printable height of one copy, so the footer band lands at the page foot. */
+const COPY_HEIGHT_MM = 210 - MARGIN_MM * 2;
+
+/** Printed on every copy, above the footer band. */
+const NOTE_BN = 'রিপোর্ট সংগ্রহের সময় অবশ্যই এই রশিদটি সঙ্গে আনবেন।';
+const QR_NOTE_BN = 'কিউআর কোড স্ক্যান করে অনলাইনে রিপোর্ট দেখুন।';
+
+const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+/**
+ * The centre's contact details, as they read on its own stationery: the
+ * address in Bangla, then phone, email and website. Printed once in the
+ * footer -- not repeated in the header -- so the top of the page stays just
+ * the logo and the rule.
+ */
+const CENTRE_CONTACTS = [
+    CENTRE.address,
+    CENTRE.phone && `Phone: ${CENTRE.phone}`,
+    CENTRE.email,
+    CENTRE.website,
+].filter(Boolean) as string[];
+
+/**
+ * The top of the letterhead: the logo and a blue-to-green rule under it --
+ * the part of the stationery a patient recognises the centre by at a glance.
+ */
+const LetterheadTop = () => (
     <header>
-        <div className="flex items-center justify-between gap-6">
-            <BrandLogo size="letterhead" lang="en" />
-            <address className="text-right text-[10px] not-italic leading-snug text-neutral-600">
-                {CENTRE.address && <p>{CENTRE.address}</p>}
-                {CENTRE.phone && <p className="figure">{CENTRE.phone}</p>}
-                {CENTRE.email && <p>{CENTRE.email}</p>}
-                {CENTRE.website && <p>{CENTRE.website}</p>}
-            </address>
-        </div>
+        <BrandLogo size="letterhead" lang="en" />
         <div className="brand-rule mt-2" />
-        <div className="mt-1.5 flex items-center justify-between gap-4">
-            <p className="flex items-center gap-2 text-[8.5px] font-semibold uppercase tracking-[.12em]">
-                {BRAND_VALUES.en.map((value, index) => (
-                    <span key={value} className="flex items-center gap-2">
-                        {index > 0 && <span className="text-neutral-300">|</span>}
-                        <span style={{ color: index === 1 ? BRAND_GREEN : BRAND_BLUE }}>{value}</span>
-                    </span>
-                ))}
-            </p>
-            <p className="tagline">{BRAND_TAGLINE_BN}</p>
-        </div>
     </header>
 );
 
-const Totals = ({ invoice }: { invoice: Invoice }) => {
-    const settled = invoice.dueAmount <= 0;
+/** Icon and accent colour for each of the centre's three values, in order. */
+const BAND_MARKS: { icon: IconName; color: string }[] = [
+    { icon: 'settings', color: BRAND_BLUE },
+    { icon: 'shield-check', color: BRAND_GREEN },
+    { icon: 'life-buoy', color: BRAND_BLUE },
+];
 
-    return (
-        <div className="w-60 shrink-0">
-            <dl className="space-y-0.5 text-[11.5px] leading-snug">
-                <div className="flex justify-between">
-                    <dt className="text-neutral-600">Subtotal</dt>
-                    <dd className="figure tabular-nums">{money(invoice.grossAmount)}</dd>
-                </div>
-                {invoice.discountAmount > 0 && (
-                    <div className="flex justify-between">
-                        <dt className="text-neutral-600">Discount {invoice.discountPercent}%</dt>
-                        <dd className="figure tabular-nums">−{money(invoice.discountAmount)}</dd>
-                    </div>
-                )}
-                <div className="flex justify-between border-t border-neutral-300 pt-0.5 font-semibold">
-                    <dt>Net payable</dt>
-                    <dd className="figure tabular-nums">{money(invoice.netPayable)}</dd>
-                </div>
-                <div className="flex justify-between">
-                    <dt className="text-neutral-600">Paid</dt>
-                    <dd className="figure tabular-nums">{money(invoice.paidAmount)}</dd>
-                </div>
-            </dl>
-
-            {/*
-              The one fact the patient and the counter both check, and the one
-              thing on each copy set large.
-            */}
-            <div className="mt-1.5 flex items-baseline justify-between border-y-2 border-black py-1">
-                <span className="text-[12.5px] font-semibold">{settled ? 'Paid in full' : 'Balance due'}</span>
-                <span className="figure text-[15px] font-semibold tabular-nums">
-                    {money(settled ? invoice.paidAmount : invoice.dueAmount)}
-                </span>
-            </div>
+/**
+ * The foot of the letterhead, as on the centre's own signage: a gradient rule
+ * broken by a pulse mark, the centre's three values each with their own badge
+ * and colour, and a gradient pill carrying the Bangla tagline.
+ */
+const LetterheadBand = () => (
+    <>
+        <div className="pulse-rule">
+            <span className="pulse-mark">
+                <Icon name="activity" size={11} color={BRAND_BLUE} />
+            </span>
         </div>
-    );
-};
-
-/** What only the patient needs: the QR for their reports, and how to collect them. */
-const PatientNotes = ({ invoice }: { invoice: Invoice }) => (
-    <div className="flex items-start gap-3">
-        {invoice.publicToken && (
-            <div className="shrink-0 text-center">
-                <QRCodeSVG value={publicReportUrl(invoice.publicToken)} size={62} level="M" marginSize={0} />
-                <p className="mt-1 text-[8px] leading-tight">Scan for your reports</p>
-            </div>
-        )}
-        <div>
-            <p className="font-semibold text-neutral-800">Collecting your reports</p>
-            <p className="mt-0.5">
-                Scan the code with your phone to read your reports online once this invoice is settled, or
-                bring this copy to the counter.
-            </p>
+        <div className="band-values">
+            {BRAND_VALUES.en.map((value, index) => (
+                <Fragment key={value}>
+                    {index > 0 && <span className="band-sep" aria-hidden="true" />}
+                    <span className="band-value" style={{ color: BAND_MARKS[index].color }}>
+                        <span className="band-badge" style={{ background: BAND_MARKS[index].color }}>
+                            <Icon name={BAND_MARKS[index].icon} size={9} color="#fff" />
+                        </span>
+                        {value}
+                    </span>
+                </Fragment>
+            ))}
         </div>
+        <div className="band-pill">{BRAND_TAGLINE_BN}</div>
+    </>
+);
+
+const Field = ({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) => (
+    <div className={`flex gap-1.5 ${wide ? 'col-span-2' : ''}`}>
+        <span className="w-[64px] shrink-0 text-neutral-600">{label}</span>
+        <span className="text-neutral-500">:</span>
+        <span className="min-w-0">{children}</span>
     </div>
 );
 
 /**
- * What only the centre needs: who booked the visit and every receipt taken
- * against it, so the counter can reconcile the till without opening the app.
- */
-const CentreNotes = ({ invoice, receipts }: { invoice: Invoice; receipts: Receipt[] }) => {
-    const bookedBy = typeof invoice.createdBy === 'object' ? invoice.createdBy?.name : undefined;
-
-    return (
-        <div>
-            {bookedBy && (
-                <p>
-                    <span className="field-label mr-1.5 inline">Booked by</span>
-                    <span className="text-neutral-800">{bookedBy}</span>
-                </p>
-            )}
-            {receipts.length > 0 ? (
-                <table className="mt-1 w-full border-collapse text-[10px] leading-tight">
-                    <tbody>
-                        {receipts.map((payment) => (
-                            <tr key={payment._id} className="border-b border-neutral-200">
-                                <td className="figure py-0.5 pr-2">{payment.receiptNumber}</td>
-                                <td className="figure py-0.5 pr-2">{formatDateTime(payment.paymentDate)}</td>
-                                <td className="py-0.5 pr-2">{payment.receivedByName}</td>
-                                <td className="figure py-0.5 text-right tabular-nums">{money(payment.amount)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            ) : (
-                <p className="mt-1">No payment received yet.</p>
-            )}
-        </div>
-    );
-};
-
-/**
- * One half of the two-part invoice. Both halves carry the same bill; they
- * differ only in what each party needs to keep: the patient's half has the QR
- * and collection instructions, the centre's half has the booking and receipt
- * trail and a "Received by" line.
+ * One copy of the bill on its own A5 page: letterhead at the top, the band at
+ * the foot, and between them the bill set out the way a counter reads one --
+ * a "label : value" block, a fully ruled test table, and a ruled totals box.
+ *
+ * The two copies carry the same bill and differ in what each party keeps: the
+ * patient's has the report QR, the centre's has the receipt trail and a
+ * "Received by" line. The copy label is outlined on one and solid on the
+ * other, so the counter never hands over the wrong half.
  */
 const InvoiceCopy = ({ invoice, receipts, kind }: { invoice: Invoice; receipts: Receipt[]; kind: CopyKind }) => {
     const patient = invoice.patientInfo;
     const referrer = invoice.referrerInfo;
+    const settled = invoice.dueAmount <= 0;
+    const status = invoice.isCancelled ? 'Cancelled' : settled ? 'Paid' : 'Due';
+
+    // Outdoor tests are billed exactly as entered — no discount — so the bill
+    // breaks them out of the lab-test subtotal the discount actually applies to.
+    const liveItems = invoice.items.filter((item) => !item.isCancelled);
+    const outdoorGross = liveItems
+        .filter((item) => item.isOutdoor)
+        .reduce((total, item) => total + item.price, 0);
+    const labGross = invoice.grossAmount - outdoorGross;
+    const firstOutdoorIndex = invoice.items.findIndex((item) => item.isOutdoor);
+
+    // Only the centre's copy reveals what a partner centre charged; the
+    // patient's copy always reads the regular price they actually paid.
+    const showCost = kind === 'centre';
+    const corporateCost = liveItems
+        .filter((item) => item.isCorporate)
+        .reduce((total, item) => total + (item.corporatePrice ?? 0), 0);
+    const hasCorporate = liveItems.some((item) => item.isCorporate);
 
     return (
-        <section className="copy">
+        <section className="copy" style={{ minHeight: `${COPY_HEIGHT_MM}mm` }}>
             {/*
-              The watermark: the centre's logo set large, faint and softened in
-              the middle of the copy, behind the bill, as on the centre's own
-              stationery. Every copy carries it, and it never competes with the
-              figures printed over it.
+              The watermark: the centre's mark set large and faint in the middle
+              of the page, behind the bill, as on the centre's stationery. It is
+              part of every copy, so a photocopy or a forgery without it stands
+              out, and it never competes with the figures printed over it.
             */}
             <div className="watermark" aria-hidden="true">
-                <BrandLogo size="lg" lang="en" />
+                <BrandMark size={300} />
             </div>
 
-            <Letterhead />
+            <LetterheadTop />
 
-            <div className="mt-3 flex items-end justify-between gap-6">
-                <div className="flex items-baseline gap-3">
-                    <h1 className="text-[17px] font-semibold leading-none tracking-tight">Invoice</h1>
-                    <span className="figure text-[12px] text-neutral-700">{invoice.invoiceNumber}</span>
-                    {invoice.isCancelled && (
-                        <span className="text-[10.5px] font-semibold uppercase tracking-wider">Cancelled</span>
-                    )}
-                </div>
-                <span className={`copy-tag ${kind === 'centre' ? 'copy-tag--centre' : ''}`}>{COPY_LABEL[kind]}</span>
+            <div className="mt-2 flex justify-center">
+                <span className={`copy-pill ${kind === 'centre' ? 'copy-pill--solid' : ''}`}>{COPY_LABEL[kind]}</span>
             </div>
 
-            <div className="mt-2 grid grid-cols-[1.35fr_1fr_auto] gap-6 border-y border-neutral-300 py-2 text-[11px] leading-snug">
-                <div>
-                    <p className="field-label">Patient</p>
-                    <p className="text-[13px] font-semibold">{patient.name}</p>
-                    <p className="text-neutral-700">
-                        <span className="figure">{patient.patientId}</span>
-                        {' · '}
-                        <span className="capitalize">
-                            {patient.age} yrs, {patient.gender}
-                        </span>
-                        {' · '}
-                        <span className="figure">{patient.phone}</span>
-                    </p>
-                </div>
-                <div>
-                    <p className="field-label">Referred by</p>
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 border-y border-neutral-400 py-1.5 text-[10.5px] leading-snug">
+                <Field label="Invoice No">
+                    <span className="figure font-semibold">{invoice.invoiceNumber}</span>
+                </Field>
+                <Field label="Date">
+                    <span className="figure">{formatDateTime(invoice.createdAt || invoice.visitDate)}</span>
+                </Field>
+                <Field label="Patient ID">
+                    <span className="figure">{patient.patientId}</span>
+                </Field>
+                <Field label="Phone">
+                    <span className="figure">{patient.phone}</span>
+                </Field>
+                <Field label="Name" wide>
+                    <strong className="text-[11.5px]">{patient.name}</strong>
+                </Field>
+                <Field label="Age / Sex">
+                    {patient.age} Y / {cap(patient.gender)}
+                </Field>
+                <Field label="Ref. By">
                     {referrer ? (
                         <>
-                            <p className="font-semibold">{referrer.name}</p>
-                            {(referrer.designation || referrer.hospital) && (
-                                <p className="text-neutral-700">
-                                    {[referrer.designation, referrer.hospital].filter(Boolean).join(', ')}
-                                </p>
-                            )}
+                            {referrer.name}
+                            {referrer.designation ? `, ${referrer.designation}` : ''}
                         </>
                     ) : (
-                        <p className="text-neutral-700">Self</p>
+                        'Self'
                     )}
-                </div>
-                <div className="text-right">
-                    <p className="field-label">Date</p>
-                    <p className="figure">{formatDate(invoice.visitDate)}</p>
-                </div>
+                </Field>
             </div>
 
-            <table className="bill-table w-full border-collapse text-[11.5px] leading-tight">
+            <table className="bill mt-2 w-full">
                 <thead>
-                    <tr className="border-b border-neutral-400 text-left text-[9.5px] font-semibold uppercase tracking-wider text-neutral-500">
-                        <th className="w-7 py-1.5 font-semibold">#</th>
-                        <th className="py-1.5 font-semibold">Test</th>
-                        <th className="w-28 py-1.5 font-semibold">Code</th>
-                        <th className="w-28 py-1.5 text-right font-semibold">Amount</th>
+                    <tr>
+                        <th className="w-7">SL</th>
+                        <th className="w-[4.6rem]">Code</th>
+                        <th>Test Name</th>
+                        <th className="w-[5.2rem] text-right">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     {invoice.items.map((item, index) => (
-                        <tr
-                            key={item._id}
-                            className={`border-b border-neutral-200 ${item.isCancelled ? 'text-neutral-400' : ''}`}
-                        >
-                            <td className="figure py-1 align-top text-[10.5px] text-neutral-500">{index + 1}</td>
-                            <td className="py-1 align-top">
-                                {/*
-                                  Struck, not dropped: the patient was told they were
-                                  being billed for this, so the bill has to show what
-                                  happened to it rather than quietly disagree.
-                                */}
-                                <span className={item.isCancelled ? 'line-through' : ''}>{item.testName}</span>
-                                {item.isCancelled && (
-                                    <span className="ml-2 text-[10px] italic">
-                                        cancelled{item.cancelReason ? ` — ${item.cancelReason}` : ''}
-                                    </span>
-                                )}
-                            </td>
-                            <td className="figure py-1 align-top text-[10.5px] text-neutral-600">{item.testCode}</td>
-                            <td
-                                className={`figure py-1 text-right align-top tabular-nums ${
-                                    item.isCancelled ? 'line-through' : ''
-                                }`}
-                            >
-                                {money(item.price)}
-                            </td>
-                        </tr>
+                        <Fragment key={item._id}>
+                            {index === firstOutdoorIndex && (
+                                <tr>
+                                    <td colSpan={4} className="outdoor-divider">
+                                        Outdoor tests · Billed as entered, no discount
+                                    </td>
+                                </tr>
+                            )}
+                            <tr className={item.isCancelled ? 'text-neutral-400' : ''}>
+                                <td className="figure text-center">{index + 1}</td>
+                                <td className="figure">{item.testCode}</td>
+                                <td>
+                                    {/* Struck, not dropped: the bill has to show what
+                                        happened to a test the patient was told about. */}
+                                    <span className={item.isCancelled ? 'line-through' : ''}>{item.testName}</span>
+                                    {showCost && item.isCorporate && <span className="corp-tag">Corp</span>}
+                                    {item.isCancelled && <span className="ml-1.5 text-[9px] italic">cancelled</span>}
+                                </td>
+                                <td className={`figure text-right tabular-nums ${item.isCancelled ? 'line-through' : ''}`}>
+                                    {money(showCost && item.isCorporate ? (item.corporatePrice ?? 0) : item.price)}
+                                </td>
+                            </tr>
+                        </Fragment>
                     ))}
                 </tbody>
             </table>
 
-            {/* Blank ruled lines down to the totals; see .filler. */}
-            <div className="filler" aria-hidden="true" />
+            <div className="mt-2 flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1 text-[9.5px] leading-snug text-neutral-700">
+                    <p className="status">{status}</p>
 
-            <div className="mt-2.5 flex items-start justify-between gap-8">
-                <div className="min-w-0 flex-1 text-[10.5px] leading-snug text-neutral-600">
-                    {kind === 'patient' ? (
-                        <PatientNotes invoice={invoice} />
-                    ) : (
-                        <CentreNotes invoice={invoice} receipts={receipts} />
+                    {kind === 'patient' && invoice.publicToken && (
+                        <div className="mt-1.5 flex items-center gap-2">
+                            <QRCodeSVG value={publicReportUrl(invoice.publicToken)} size={56} level="M" marginSize={0} />
+                            <p className="bn max-w-[9rem] text-[9.5px] leading-snug">{QR_NOTE_BN}</p>
+                        </div>
+                    )}
+
+                    {kind === 'centre' && (
+                        <div className="mt-1">
+                            {receipts.length > 0 ? (
+                                <table className="w-full border-collapse text-[8.5px] leading-tight">
+                                    <tbody>
+                                        {receipts.map((payment) => (
+                                            <tr key={payment._id} className="border-b border-neutral-200">
+                                                <td className="figure py-0.5 pr-1.5">{payment.receiptNumber}</td>
+                                                <td className="figure py-0.5 pr-1.5">
+                                                    {formatDateTime(payment.paymentDate)}
+                                                </td>
+                                                <td className="figure py-0.5 text-right tabular-nums">
+                                                    {money(payment.amount)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p>No payment received yet.</p>
+                            )}
+                        </div>
                     )}
                 </div>
-                <Totals invoice={invoice} />
+
+                <table className="totals shrink-0">
+                    <tbody>
+                        <tr>
+                            <td>Lab tests</td>
+                            <td className="figure">{money(labGross)}</td>
+                        </tr>
+                        <tr>
+                            <td>(-) Discount{invoice.discountPercent ? ` ${invoice.discountPercent}%` : ''}</td>
+                            <td className="figure">{money(invoice.discountAmount)}</td>
+                        </tr>
+                        {outdoorGross > 0 && (
+                            <tr>
+                                <td>Outdoor tests</td>
+                                <td className="figure">{money(outdoorGross)}</td>
+                            </tr>
+                        )}
+                        <tr className="font-semibold">
+                            <td>Net Payable</td>
+                            <td className="figure">{money(invoice.netPayable)}</td>
+                        </tr>
+                        <tr>
+                            <td>Paid</td>
+                            <td className="figure">{money(invoice.paidAmount)}</td>
+                        </tr>
+                        <tr className="font-bold">
+                            <td>Due</td>
+                            <td className="figure">{money(invoice.dueAmount)}</td>
+                        </tr>
+                        {showCost && hasCorporate && (
+                            <>
+                                <tr className="corp-row">
+                                    <td>Corporate cost</td>
+                                    <td className="figure">{money(corporateCost)}</td>
+                                </tr>
+                                <tr className="corp-row font-semibold">
+                                    <td>Centre cost</td>
+                                    <td className="figure">{money(invoice.netPayable - corporateCost)}</td>
+                                </tr>
+                            </>
+                        )}
+                    </tbody>
+                </table>
             </div>
 
-            <footer className="mt-4 flex items-end justify-between gap-6 text-[9.5px] text-neutral-500">
-                <p>
-                    Computer-generated invoice
-                    {CENTRE.phone ? ` · ${CENTRE.phone}` : ''}
-                </p>
-                <div className="shrink-0 text-center">
-                    <div className="mb-1 w-40 border-t border-neutral-500" />
-                    <p className="text-neutral-600">{kind === 'patient' ? 'Authorised signature' : 'Received by'}</p>
+            {/* Everything below this point sits at the foot of the page. */}
+            <div className="mt-auto pt-3">
+                {CENTRE_CONTACTS.length > 0 && (
+                    <p className="bn text-center text-[9px] leading-snug text-neutral-700">
+                        {CENTRE_CONTACTS.join(', ')}
+                    </p>
+                )}
+                <p className="bn mt-1 text-center text-[9.5px] text-neutral-800">{NOTE_BN}</p>
+                <div className="mt-1.5 flex justify-end text-[8.5px] text-neutral-600">
+                    <div className="text-center">
+                        <div className="mb-0.5 w-32 border-t border-neutral-500" />
+                        <p>{kind === 'patient' ? 'Authorised Signature' : 'Received By'}</p>
+                    </div>
                 </div>
-            </footer>
+                <div className="mt-1.5">
+                    <LetterheadBand />
+                </div>
+            </div>
         </section>
     );
 };
 
 /**
- * The printed invoice, in two parts on one A4 sheet: the patient's copy on
- * top and the centre's copy beneath, separated by a cut line, each under the
- * centre's letterhead.
+ * The printed invoice, as the centre's own stationery: every copy is a full
+ * page framed by the letterhead -- logo and contacts across the top, a band in
+ * the logo's colours across the foot -- rather than a document with a logo
+ * dropped on it.
  *
- * Set in a serif rather than the app's face: this is a paper record, and the
- * interface's monospace is wider than A4 wants and wrong for names. The mono
- * face is kept for what gets read back or transcribed -- invoice numbers, test
- * codes, receipts -- and for money, where tabular figures align.
- *
- * Each copy refuses to split across pages. A booking with many tests pushes
- * the centre's copy onto a second sheet whole, rather than tearing either
- * copy in half. Either copy can also be printed alone -- a reprint for a
- * patient who lost theirs should not produce a second centre copy.
+ * Set in a serif for names and running text; the mono face is kept for what
+ * gets read back or transcribed -- invoice numbers, codes, money.
  *
  * Nothing about the centre's commission arrangements appears on either copy.
  */
@@ -336,88 +378,103 @@ const PrintInvoicePage = () => {
     }
 
     const receipts = payments.filter((payment) => !payment.isVoided) as Receipt[];
-    const kinds: CopyKind[] = selection === 'both' ? ['patient', 'centre'] : [selection];
+    const both = selection === 'both';
+    const kinds: CopyKind[] = both ? ['patient', 'centre'] : [selection];
+    const paper = both ? PAPER.both : PAPER.single;
 
     return (
         <div className="min-h-screen bg-slate-100 py-8 print:bg-white print:py-0">
             <style>{`
-                /* Each copy is exactly one A5 half of an A4 sheet: both copies
-                   fill an A4 portrait page top and bottom, a single copy prints
-                   on A5 landscape and looks exactly like its half. */
-                @page { size: ${selection === 'both' ? 'A4 portrait' : 'A5 landscape'}; margin: 0; }
+                @page { size: ${paper.size}; margin: ${MARGIN_MM}mm; }
                 @media print {
-                    .sheet { box-shadow: none !important; }
-                    thead { display: table-header-group; }
-                }
-                .copy {
-                    box-sizing: border-box; width: 210mm; min-height: 148mm;
-                    padding: 8mm 12mm; break-inside: avoid;
-                    display: flex; flex-direction: column;
-                }
-                /* Fixed row height, so the blank lines below continue the
-                   table at exactly the same pitch. */
-                .bill-table tbody td { height: 6.2mm; box-sizing: border-box; }
-                /* Whatever height a short bill leaves is taken up by blank
-                   ruled lines, as on a printed invoice pad, instead of an
-                   empty hole between the tests and the totals. */
-                .filler {
-                    flex: 1 1 auto; min-height: 0;
-                    background-image: repeating-linear-gradient(
-                        to bottom,
-                        transparent 0, transparent calc(6.2mm - 1px),
-                        #e5e5e5 calc(6.2mm - 1px), #e5e5e5 6.2mm
-                    );
+                    .sheet {
+                        width: auto !important; min-height: 0 !important;
+                        padding: 0 !important; box-shadow: none !important;
+                    }
                 }
                 .doc {
                     font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+                    color: #111;
                     /* Browsers drop background colours when printing unless told
-                       not to; the tagline, the rule and the centre tag need them. */
+                       not to; the rule, the band and the solid copy label need them. */
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
-                /* Bengali is not in either Latin face; the taka sign comes from here. */
                 .figure { font-family: 'JetBrains Mono', 'Noto Sans Bengali', ui-monospace, monospace; }
-                .copy { position: relative; }
+                .bn { font-family: 'Noto Sans Bengali', sans-serif; }
+                .copy { display: flex; flex-direction: column; position: relative; }
                 /* Everything in a copy sits above the watermark. */
                 .copy > *:not(.watermark) { position: relative; z-index: 1; }
                 .watermark {
                     position: absolute; inset: 0; z-index: 0;
                     display: flex; align-items: center; justify-content: center;
-                    pointer-events: none; opacity: .09; filter: blur(1.2px);
+                    pointer-events: none; opacity: .08;
                 }
-                .watermark > div { transform: scale(1.35); }
-                .brand-rule { height: 2px; background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN}); }
-                .tagline {
-                    font-family: 'Noto Sans Bengali', sans-serif;
-                    font-size: 10px; font-weight: 600; line-height: 1.5;
-                    color: #fff; white-space: nowrap;
-                    padding: 1px 12px; border-radius: 999px;
+                .brand-rule { height: 2.5px; background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN}); }
+                .copy-pill {
+                    font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700;
+                    letter-spacing: .06em; padding: 2px 16px; border: 1.5px solid #111; border-radius: 999px;
+                }
+                .copy-pill--solid { background: #111; color: #fff; }
+                .bill { border-collapse: collapse; font-size: 10px; }
+                .bill th, .bill td { border: 1px solid #6b6b6b; padding: 2.5px 5px; vertical-align: top; }
+                .bill th {
+                    background: #ececec; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+                    font-size: 9px; letter-spacing: .04em; text-align: left;
+                }
+                .outdoor-divider {
+                    background: #f5f3ee; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+                    font-size: 8px; letter-spacing: .05em; text-transform: uppercase; color: #6b6558;
+                }
+                .totals { border-collapse: collapse; font-size: 10px; }
+                .totals td { border: 1px solid #6b6b6b; padding: 2px 7px; }
+                .totals td:first-child { text-align: right; color: #333; }
+                .totals td:last-child { text-align: right; min-width: 5.4rem; font-variant-numeric: tabular-nums; }
+                .totals .corp-row td { background: #f5f3ee; }
+                .corp-tag {
+                    margin-left: 5px; padding: 0 4px; border: 1px solid #6b6558; border-radius: 3px;
+                    font-family: 'Space Grotesk', sans-serif; font-size: 7px; font-weight: 700;
+                    letter-spacing: .06em; text-transform: uppercase; color: #6b6558;
+                }
+                .status { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
+                .pulse-rule {
+                    position: relative; height: 2px; margin: 0 2px;
                     background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN});
                 }
-                .field-label {
-                    font-family: 'JetBrains Mono', ui-monospace, monospace;
-                    font-size: 8.5px; font-weight: 600; letter-spacing: .1em;
-                    text-transform: uppercase; color: #737373; margin-bottom: 1px;
+                .pulse-mark {
+                    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                    display: flex; align-items: center; justify-content: center;
+                    width: 16px; height: 16px; border-radius: 999px; background: #fff;
                 }
-                .copy-tag {
-                    font-family: 'JetBrains Mono', ui-monospace, monospace;
-                    font-size: 9px; font-weight: 700; letter-spacing: .14em;
-                    text-transform: uppercase; border: 1.5px solid #111; padding: 2px 8px;
+                .band-values {
+                    display: flex; align-items: center; justify-content: center; gap: 7px;
+                    padding: 5px 10px 0;
+                    font-family: 'Space Grotesk', sans-serif; font-size: 9px; font-weight: 700;
+                    letter-spacing: .06em; text-transform: uppercase;
                 }
-                /* Solid for the centre's half, so the counter never hands the
-                   patient the wrong one. */
-                .copy-tag--centre { background: #111; color: #fff; }
-                /* Zero height, so two copies still add up to exactly one A4 page. */
-                .cut { position: relative; height: 0; margin: 0 8mm; border-top: 1.5px dashed #9a948a; }
-                .cut span {
-                    position: absolute; left: 50%; top: -8px; transform: translateX(-50%);
-                    background: #fff; padding: 0 10px;
-                    font-family: 'JetBrains Mono', ui-monospace, monospace;
-                    font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #7a756b;
+                .band-value { display: inline-flex; align-items: center; gap: 4px; }
+                .band-badge {
+                    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                    width: 14px; height: 14px; border-radius: 999px;
+                }
+                .band-sep { width: 1px; height: 9px; background: #d8d4c9; }
+                .band-pill {
+                    margin: 5px auto 0; width: fit-content; padding: 3px 18px;
+                    color: #fff; text-align: center;
+                    background: linear-gradient(90deg, ${BRAND_BLUE}, ${BRAND_GREEN});
+                    border-radius: 999px;
+                    font-family: 'Noto Sans Bengali', sans-serif; font-size: 9.5px; font-weight: 700;
+                }
+                .cut-v { position: relative; display: flex; align-items: center; justify-content: center; }
+                .cut-v::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1.5px dashed #9a948a; }
+                .cut-v span {
+                    position: relative; writing-mode: vertical-rl; background: #fff; padding: 8px 0;
+                    font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .2em;
+                    text-transform: uppercase; color: #7a756b;
                 }
             `}</style>
 
-            <div className="mx-auto max-w-[52rem] px-4">
+            <div className="mx-auto max-w-full px-4" style={{ width: `calc(${paper.width}mm + 2rem)` }}>
                 {invoice.publicToken && isUnreachableBase() && (
                     <div className="mb-3 rounded-sm border border-amber-400 bg-amber-50 px-4 py-3 text-[13px] text-amber-900 print:hidden">
                         <strong>The QR code on this invoice will not work for patients.</strong> It
@@ -464,17 +521,27 @@ const PrintInvoicePage = () => {
                         Print / Save as PDF
                     </button>
                 </div>
+            </div>
 
+            {/* Drawn at true paper size, so what is on screen is what prints. */}
+            <div className="overflow-x-auto px-4 pb-4 print:overflow-visible print:p-0">
                 <div
                     ref={printRef}
-                    className="doc sheet mx-auto bg-white text-[12px] leading-snug text-black shadow-lg"
-                    style={{ width: '210mm' }}
+                    className="doc sheet mx-auto bg-white shadow-lg"
+                    style={{
+                        width: `${paper.width}mm`,
+                        minHeight: `${paper.height}mm`,
+                        padding: `${MARGIN_MM}mm`,
+                        boxSizing: 'border-box',
+                        display: 'grid',
+                        gridTemplateColumns: both ? '1fr 8mm 1fr' : '1fr',
+                    }}
                 >
                     {kinds.map((kind, index) => (
                         <Fragment key={kind}>
                             {index > 0 && (
-                                <div className="cut" aria-hidden="true">
-                                    <span>✂ Cut here</span>
+                                <div className="cut-v" aria-hidden="true">
+                                    <span>✂ cut here</span>
                                 </div>
                             )}
                             <InvoiceCopy invoice={invoice} receipts={receipts} kind={kind} />

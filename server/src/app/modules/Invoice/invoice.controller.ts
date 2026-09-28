@@ -53,13 +53,15 @@ const getPatientInvoices = catchAsync(async (req, res) => {
 });
 
 const updateInvoiceItems = catchAsync(async (req, res) => {
-  const { testIds, discountPercent, commissionType, commissionValue } = req.body;
+  const { testIds, discountPercent, commissionType, commissionValue, corporateTestIds } =
+    req.body;
   const result = await InvoiceServices.updateInvoiceItems(
     req.params.id,
     testIds,
     discountPercent,
     commissionType,
-    commissionValue
+    commissionValue,
+    corporateTestIds ?? []
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,

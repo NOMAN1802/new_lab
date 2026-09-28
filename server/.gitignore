@@ -11,3 +11,4 @@ dist
 src/invoices/*.pdf
 
 .vercel
+.env*

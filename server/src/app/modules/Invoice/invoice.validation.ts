@@ -37,6 +37,24 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
   });
 
 /**
+ * Every corporate id must also be a booked test — the flag picks the rate for
+ * a line that is already on the bill, it cannot add one.
+ */
+const corporateSubsetCheck = (
+  body: { testIds: string[]; corporateTestIds?: string[] },
+  ctx: z.RefinementCtx
+) => {
+  const booked = new Set(body.testIds);
+  if ((body.corporateTestIds ?? []).some((id) => !booked.has(id))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['body', 'corporateTestIds'],
+      message: 'A corporate test must also be one of the booked tests',
+    });
+  }
+};
+
+/**
  * Note what is absent: grossAmount, discountAmount, netPayable, commissionAmount,
  * paidAmount, dueAmount and paymentStatus are all server-derived. Zod strips
  * unknown keys, so a client sending them has no effect.
@@ -46,38 +64,42 @@ const withCommissionCheck = <T extends z.ZodTypeAny>(schema: T) =>
  * accrual comes from the referrer's standing terms, and only an Admin changes
  * those or settles them from the Doctor's Commission screen.
  */
-const createInvoiceValidationSchema = z.object({
-  body: z.object({
-    patient: objectId,
-    referrer: objectId.optional(),
-    testIds: z
-      .array(objectId, { required_error: 'Select at least one test' })
-      .min(1, 'Select at least one test'),
-    visitDate: z.string().datetime().optional(),
-    discountPercent: percent.optional(),
-    notes: z.string().trim().optional(),
-    collectFullPayment: z.boolean().optional(),
-    /**
-     * A part-payment taken at the counter. The service clamps it to the net it
-     * computes, so an over-figure can never receipt more than is owed.
-     */
-    advanceAmount: z
-      .number({ invalid_type_error: 'Must be a number' })
-      .min(0, 'Cannot be negative')
-      .optional(),
-  }),
-});
+const createInvoiceValidationSchema = z
+  .object({
+    body: z.object({
+      patient: objectId,
+      referrer: objectId.optional(),
+      testIds: z
+        .array(objectId, { required_error: 'Select at least one test' })
+        .min(1, 'Select at least one test'),
+      corporateTestIds: z.array(objectId).optional(),
+      visitDate: z.string().datetime().optional(),
+      discountPercent: percent.optional(),
+      notes: z.string().trim().optional(),
+      collectFullPayment: z.boolean().optional(),
+      /**
+       * A part-payment taken at the counter. The service clamps it to the net it
+       * computes, so an over-figure can never receipt more than is owed.
+       */
+      advanceAmount: z
+        .number({ invalid_type_error: 'Must be a number' })
+        .min(0, 'Cannot be negative')
+        .optional(),
+    }),
+  })
+  .superRefine((value, ctx) => corporateSubsetCheck(value.body, ctx));
 
 const updateInvoiceItemsValidationSchema = withCommissionCheck(
   z.object({
     body: z.object({
       testIds: z.array(objectId).min(1, 'Select at least one test'),
+      corporateTestIds: z.array(objectId).optional(),
       discountPercent: percent.optional(),
       commissionType: commissionType.optional(),
       commissionValue: commissionValue.optional(),
     }),
   })
-);
+).superRefine((value, ctx) => corporateSubsetCheck(value.body, ctx));
 
 const cancelInvoiceValidationSchema = z.object({
   body: z.object({

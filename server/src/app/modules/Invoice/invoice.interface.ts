@@ -24,7 +24,8 @@ export type TReportFile = {
  */
 export type TInvoiceItem = {
   _id?: Types.ObjectId;
-  test: Types.ObjectId;
+  /** Absent for an outdoor test — there is no catalogue Test behind it. */
+  test?: Types.ObjectId;
   testCode: string;
   testName: string;
   categoryName?: string;
@@ -32,6 +33,21 @@ export type TInvoiceItem = {
   reportStatus: TReportStatus;
   reportFile?: TReportFile;
   deliveredAt?: Date;
+
+  /**
+   * Legacy: an ad-hoc test typed in at booking, billed exactly as entered with
+   * no discount or commission. No longer bookable, but older invoices carry
+   * them, so totals and prints still honour the flag.
+   */
+  isOutdoor?: boolean;
+
+  /**
+   * Booked through a partner centre at its corporate rate. The patient is
+   * still billed `price` (the regular rate); corporatePrice is what the centre
+   * pays, snapshotted from the catalogue for the centre's copy.
+   */
+  isCorporate?: boolean;
+  corporatePrice?: number;
 
   /**
    * A test called off after booking — a sample that could not be drawn, a
