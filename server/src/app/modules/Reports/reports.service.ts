@@ -127,8 +127,10 @@ const getFinancialSummary = async (range: TDateRange) => {
     ]),
     /**
      * Corporate lines on settled invoices — the same scope as commission. The
-     * patient is billed the centre's regular price; running the test at a
-     * partner centre's lower corporate price is the centre's extra margin.
+     * patient is billed the centre's regular price, but that price is itself
+     * cut by the invoice's discount like every other lab test, so the cash the
+     * centre actually receives for the line is `price` haircut by the same
+     * discountPercent, not the raw catalogue price.
      */
     Invoice.aggregate([
       {
@@ -146,10 +148,21 @@ const getFinancialSummary = async (range: TDateRange) => {
         },
       },
       {
+        $project: {
+          cost: '$items.corporatePrice',
+          netReceived: {
+            $multiply: [
+              '$items.price',
+              { $subtract: [1, { $divide: ['$discountPercent', 100] }] },
+            ],
+          },
+        },
+      },
+      {
         $group: {
           _id: null,
-          cost: { $sum: '$items.corporatePrice' },
-          regular: { $sum: '$items.price' },
+          cost: { $sum: '$cost' },
+          netReceived: { $sum: '$netReceived' },
         },
       },
     ]),
@@ -162,9 +175,14 @@ const getFinancialSummary = async (range: TDateRange) => {
   const commissionAccrued = round2(b.commission ?? 0);
   const cashCollected = round2(collected[0]?.collected ?? 0);
   const corporateCost = round2(corporate[0]?.cost ?? 0);
-  // The centre's extra margin on outsourced tests: its regular price less the
-  // partner centre's corporate price (e.g. CBC 800 - 500 = 300).
-  const corporateProfit = round2((corporate[0]?.regular ?? 0) - corporateCost);
+  // The centre's actual margin on outsourced tests: what the patient really
+  // paid for the line, after their discount, less the partner centre's
+  // corporate price (e.g. CBC billed at 800 with a 10% discount nets 720;
+  // less the 500 corporate price leaves a 220 margin, not the full 300 a
+  // discount-blind figure would claim).
+  const corporateProfit = round2(
+    (corporate[0]?.netReceived ?? 0) - corporateCost
+  );
 
   return {
     invoiceCount: b.invoiceCount ?? 0,
@@ -178,16 +196,23 @@ const getFinancialSummary = async (range: TDateRange) => {
     corporateProfit,
     /**
      * Revenue is cash in hand, less what is owed to the referring doctors on
-     * it, plus the extra margin earned by running corporate tests at a partner
-     * centre's lower price. It is built from cashCollected, not netBilled — an
+     * it, less what is owed to partner centres for the corporate tests run on
+     * their behalf. It is built from cashCollected, not netBilled — an
      * invoice that has not been paid has earned nothing yet.
      *
-     * The two sides are scoped differently, and deliberately: cash is counted
-     * by payment date, commission by the invoice's visit date. Over any period
-     * longer than a few days they converge; on a single day a payment against
-     * an older invoice can carry no matching commission.
+     * corporateCost is subtracted here rather than corporateProfit added,
+     * because cashCollected already contains the patient's full (discounted)
+     * payment for the corporate line — corporateProfit is reported separately
+     * above purely as an informational margin figure, not folded into
+     * revenue, to avoid counting that line's cash twice.
+     *
+     * The three sides are scoped differently, and deliberately: cash is
+     * counted by payment date, commission and corporate cost by the invoice's
+     * visit date. Over any period longer than a few days they converge; on a
+     * single day a payment against an older invoice can carry no matching
+     * commission or corporate cost.
      */
-    revenue: round2(cashCollected - commissionAccrued + corporateProfit),
+    revenue: round2(cashCollected - commissionAccrued - corporateCost),
     discountRate: grossBilled > 0 ? round2((discountGiven / grossBilled) * 100) : 0,
     collectionRate:
       netBilled > 0 ? round2((cashCollected / netBilled) * 100) : 0,
