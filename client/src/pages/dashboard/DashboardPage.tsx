@@ -11,6 +11,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import AreaTrendChart from '@/components/ui/AreaTrendChart';
 import GaugeMeter from '@/components/ui/GaugeMeter';
 import Icon from '@/components/ui/Icon';
+import TextField from '@/components/ui/TextField';
 import { useAppSelector } from '@/hooks/store';
 import { useT } from '@/i18n/useLanguage';
 import { formatDate, formatDateTime, money, toDhakaDateInput } from '@/lib/format';
@@ -50,10 +51,13 @@ const DashboardPage = () => {
     const navigate = useNavigate();
     const t = useT();
     const [rangeDays, setRangeDays] = useState(29);
+    // A day picked from the calendar overrides the preset range until a preset
+    // is clicked again; the range is inclusive, so start = end = that day.
+    const [pickedDay, setPickedDay] = useState('');
 
     const { data, isLoading, isError, refetch } = useGetDashboardQuery({
-        startDate: daysAgo(rangeDays),
-        endDate: toDhakaDateInput(),
+        startDate: pickedDay || daysAgo(rangeDays),
+        endDate: pickedDay || toDhakaDateInput(),
         groupBy: 'daily',
     });
 
@@ -151,7 +155,9 @@ const DashboardPage = () => {
 
     // ---- Admin view: full financial overview ----
     const trend = data.trend.map((point) => ({ label: shortDay(point._id), value: point.collected }));
-    const rangeLabel = t(RANGES.find((range) => Number(range.value) === rangeDays)?.key ?? 'ctrl.30days');
+    const rangeLabel = pickedDay
+        ? formatDate(pickedDay)
+        : t(RANGES.find((range) => Number(range.value) === rangeDays)?.key ?? 'ctrl.30days');
 
     // Collection rate is derived, not stored: cash in over what was actually billed.
     const collectionRate = data.period.net > 0 ? (data.period.collected / data.period.net) * 100 : 0;
@@ -179,7 +185,23 @@ const DashboardPage = () => {
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <SegmentedControl options={RANGES.map((r) => ({ label: t(r.key), value: r.value }))} value={String(rangeDays)} onChange={(value) => setRangeDays(Number(value))} />
+                    <TextField
+                        type="date"
+                        icon="calendar"
+                        aria-label={t('ctrl.pickDay')}
+                        value={pickedDay}
+                        max={toDhakaDateInput()}
+                        onChange={(e) => setPickedDay(e.target.value)}
+                        style={{ width: 190 }}
+                    />
+                    <SegmentedControl
+                        options={RANGES.map((r) => ({ label: t(r.key), value: r.value }))}
+                        value={pickedDay ? '' : String(rangeDays)}
+                        onChange={(value) => {
+                            setPickedDay('');
+                            setRangeDays(Number(value));
+                        }}
+                    />
                     <Button icon="plus" onClick={() => navigate('/billing/new')}>
                         {t('invoices.newBooking')}
                     </Button>
@@ -235,7 +257,7 @@ const DashboardPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%),1fr))', gap: 'var(--gap-grid)' }}>
                 <Panel
                     title={t('dash.cashCollected')}
-                    subtitle={`${t('dash.last')} ${rangeLabel} · ${t('dash.groupedOn')}`}
+                    subtitle={`${pickedDay ? rangeLabel : `${t('dash.last')} ${rangeLabel}`} · ${t('dash.groupedOn')}`}
                     action={
                         <span
                             style={{

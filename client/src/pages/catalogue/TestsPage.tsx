@@ -42,7 +42,9 @@ const rowAction: React.CSSProperties = {
 
 const TestsPage = () => {
     const t = useT();
-    const { isAdmin } = useRole();
+    const { isAdmin, isReceptionist } = useRole();
+    // Both roles maintain the catalogue.
+    const canEdit = isAdmin || isReceptionist;
     const [search, setSearch] = useState('');
     const [editing, setEditing] = useState<LabTest | null>(null);
     const [isFormOpen, setFormOpen] = useState(false);
@@ -148,7 +150,7 @@ const TestsPage = () => {
                         {tests.length} tests · prices apply to every new booking
                     </p>
                 </div>
-                {isAdmin && (
+                {canEdit && (
                     <Button icon="plus" onClick={startCreate}>
                         {t('jsx.addTest')}
                     </Button>
@@ -159,7 +161,7 @@ const TestsPage = () => {
                 <TextField icon="search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('ph.searchNameCode')} />
             </div>
 
-            {isFormOpen && isAdmin && (
+            {isFormOpen && canEdit && (
                 <Panel title={editing ? `Edit ${editing.name}` : 'New test'} style={{ borderColor: 'var(--indigo-200)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%),1fr))', gap: 18 }}>
@@ -309,7 +311,7 @@ const TestsPage = () => {
                                         <span style={{ color: 'var(--text-faint)' }}>—</span>
                                     ),
                             },
-                            ...(isAdmin
+                            ...(canEdit
                                 ? [
                                       {
                                           key: 'actions',

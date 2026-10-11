@@ -7,10 +7,10 @@ import { TestCategoryValidations } from './test-category.validation';
 
 const router = express.Router();
 
-// The catalogue is admin-maintained; receptionists read it to book tests.
+// Both roles maintain the departments as well as reading them to book tests.
 router.post(
   '/',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(TestCategoryValidations.createTestCategoryValidationSchema),
   TestCategoryControllers.createTestCategory
 );
@@ -29,14 +29,14 @@ router.get(
 
 router.patch(
   '/:id',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(TestCategoryValidations.updateTestCategoryValidationSchema),
   TestCategoryControllers.updateTestCategory
 );
 
 router.delete(
   '/:id',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   TestCategoryControllers.deleteTestCategory
 );
 

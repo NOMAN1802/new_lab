@@ -99,8 +99,9 @@ function App() {
                         <Route path="billing/new" element={<CreateBookingPage />} />
                         <Route path="billing/:id" element={<InvoiceDetailPage />} />
 
-                        {/* Catalogue — readable by both, editable by admin only */}
+                        {/* Catalogue and departments — both roles maintain them */}
                         <Route path="tests" element={<TestsPage />} />
+                        <Route path="departments" element={<TestCategoriesPage />} />
 
                         {/* Report handling is reception work too — the API allows both roles. */}
                         <Route path="patient-reports" element={<PatientReportUploadPage />} />
@@ -110,13 +111,12 @@ function App() {
 
                         <Route path="profile" element={<ProfilePage />} />
 
-                        {/* Referrers — both roles can add; the page itself disables commission payout for receptionists. */}
+                        {/* Referrers and paying their commission — both roles */}
                         <Route path="referrers" element={<ReferrersPage />} />
+                        <Route path="commission" element={<CommissionPayoutsPage />} />
 
                         {/* Admin-only. The API enforces this independently. */}
                         <Route element={<RoleRoute allow={['admin']} />}>
-                            <Route path="departments" element={<TestCategoriesPage />} />
-                            <Route path="commission" element={<CommissionPayoutsPage />} />
                             <Route path="reports/financial" element={<FinancialReportPage />} />
                             <Route path="reports/commission" element={<CommissionReportPage />} />
                             <Route path="reports/dues" element={<DuesReportPage />} />

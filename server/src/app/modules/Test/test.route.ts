@@ -7,11 +7,10 @@ import { TestValidations } from './test.validation';
 
 const router = express.Router();
 
-// Prices are set by Admin only — a receptionist changing a price would
-// silently change what patients are billed.
+// Both roles maintain the catalogue, prices included.
 router.post(
   '/',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(TestValidations.createTestValidationSchema),
   TestControllers.createTest
 );
@@ -30,11 +29,15 @@ router.get(
 
 router.patch(
   '/:id',
-  auth(USER_ROLE.admin),
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
   validateRequest(TestValidations.updateTestValidationSchema),
   TestControllers.updateTest
 );
 
-router.delete('/:id', auth(USER_ROLE.admin), TestControllers.deleteTest);
+router.delete(
+  '/:id',
+  auth(USER_ROLE.admin, USER_ROLE.receptionist),
+  TestControllers.deleteTest
+);
 
 export const testRoutes = router;

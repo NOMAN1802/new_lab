@@ -7,8 +7,8 @@ import { CommissionPayoutValidations } from './commission-payout.validation';
 
 const router = express.Router();
 
-// Commission is financial-overview data — Admin only, per proposal §4.8.
-router.use(auth(USER_ROLE.admin));
+// Paying doctors their commission is done by both roles.
+router.use(auth(USER_ROLE.admin, USER_ROLE.receptionist));
 
 router.post(
   '/',
