@@ -10,7 +10,6 @@ import DataTable from '@/components/ui/DataTable';
 import Icon from '@/components/ui/Icon';
 import Modal from '@/components/ui/Modal';
 import Panel from '@/components/ui/Panel';
-import { useRole } from '@/hooks/useRole';
 import { useT } from '@/i18n/useLanguage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import TextField from '@/components/ui/TextField';
@@ -52,7 +51,6 @@ const rowAction: React.CSSProperties = {
 
 const ReferrersPage = () => {
     const t = useT();
-    const { isAdmin } = useRole();
     const [search, setSearch] = useState('');
     const [isFormOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState<Referrer | null>(null);
@@ -353,30 +351,13 @@ const ReferrersPage = () => {
                                     align: 'right',
                                     render: (referrer) => (
                                         <span style={{ display: 'inline-flex', gap: 4 }}>
-                                            {isAdmin ? (
-                                                <Link
-                                                    to={`/commission?referrer=${referrer._id}`}
-                                                    aria-label={`Commission for ${referrer.name}`}
-                                                    style={{ ...rowAction, color: 'var(--success-strong)' }}
-                                                >
-                                                    <Icon name="banknote" size={16} />
-                                                </Link>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    disabled
-                                                    aria-label={`Commission for ${referrer.name} (admin only)`}
-                                                    title="Only admin can pay commission"
-                                                    style={{
-                                                        ...rowAction,
-                                                        color: 'var(--success-strong)',
-                                                        opacity: 0.4,
-                                                        cursor: 'not-allowed',
-                                                    }}
-                                                >
-                                                    <Icon name="banknote" size={16} />
-                                                </button>
-                                            )}
+                                            <Link
+                                                to={`/commission?referrer=${referrer._id}`}
+                                                aria-label={`Commission for ${referrer.name}`}
+                                                style={{ ...rowAction, color: 'var(--success-strong)' }}
+                                            >
+                                                <Icon name="banknote" size={16} />
+                                            </Link>
                                             <button
                                                 type="button"
                                                 aria-label={`Edit ${referrer.name}`}

@@ -46,11 +46,11 @@ const NAVIGATION: NavItem[] = [
         icon: 'flask-conical',
         children: [
             { key: 'nav.tests', to: '/tests' },
-            { key: 'nav.departments', to: '/departments', roles: ['admin'] },
+            { key: 'nav.departments', to: '/departments' },
         ],
     },
     { key: 'nav.referrers', to: '/referrers', icon: 'user-round-search' },
-    { key: 'nav.commission', to: '/commission', icon: 'banknote', roles: ['admin'] },
+    { key: 'nav.commission', to: '/commission', icon: 'banknote' },
     {
         key: 'nav.reports',
         to: '/reports/patients',

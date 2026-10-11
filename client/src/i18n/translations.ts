@@ -95,6 +95,7 @@ export const translations = {
     'ctrl.30days': { en: '30 days', bn: '৩০ দিন' },
     'ctrl.90days': { en: '90 days', bn: '৯০ দিন' },
     'ctrl.1year': { en: '1 year', bn: '১ বছর' },
+    'ctrl.pickDay': { en: 'Pick a day', bn: 'একটি দিন বাছুন' },
     'ctrl.daily': { en: 'Daily', bn: 'দৈনিক' },
     'ctrl.monthly': { en: 'Monthly', bn: 'মাসিক' },
     'ctrl.yearly': { en: 'Yearly', bn: 'বার্ষিক' },
